@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/yudai/gotty",
+	"ImportPath": "github.com/yubo/gotty",
 	"GoVersion": "go1.5.1",
 	"Deps": [
 		{
@@ -32,14 +32,6 @@
 			"ImportPath": "github.com/kr/pty",
 			"Comment": "release.r56-28-g5cf931e",
 			"Rev": "5cf931ef8f76dccd0910001d74a58a7fca84a83d"
-		},
-		{
-			"ImportPath": "github.com/yudai/hcl",
-			"Rev": "5fa2393b3552119bf33a69adb1402a1160cba23d"
-		},
-		{
-			"ImportPath": "github.com/yudai/umutex",
-			"Rev": "18216d265c6bc72c3bb0ad9c8103d47d530b7003"
 		}
 	]
 }

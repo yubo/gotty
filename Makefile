@@ -53,4 +53,4 @@ shasums:
 	cd ${OUTPUT_DIR}/dist; shasum * > ./SHASUMS
 
 release:
-	ghr --delete --prerelease -u yudai -r gotty pre-release ${OUTPUT_DIR}/dist
+	ghr --delete --prerelease -u yubo -r gotty pre-release ${OUTPUT_DIR}/dist
