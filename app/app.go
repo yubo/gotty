@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/braintree/manners"
 	"github.com/elazarl/go-bindata-assetfs"
+	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"github.com/kr/pty"
 	"github.com/yubo/gotty/hcl"
@@ -81,10 +81,10 @@ var DefaultOptions = Options{
 	RandomUrlLength:     8,
 	IndexFile:           "",
 	EnableTLS:           false,
-	TLSCrtFile:          "~/.gotty.crt",
-	TLSKeyFile:          "~/.gotty.key",
+	TLSCrtFile:          "/etc/gotty/gotty.crt",
+	TLSKeyFile:          "/etc/gotty/gotty.key",
 	EnableTLSClientAuth: false,
-	TLSCACrtFile:        "~/.gotty.ca.crt",
+	TLSCACrtFile:        "/etc/gotty/gotty.ca.crt",
 	TitleFormat:         "GoTTY - {{ .Command }} ({{ .Hostname }})",
 	EnableReconnect:     false,
 	ReconnectTime:       10,
@@ -122,7 +122,7 @@ func ApplyConfigFile(options *Options, filePath string) error {
 	}
 
 	fileString := []byte{}
-	log.Printf("Loading config file at: %s", filePath)
+	glog.Infof("Loading config file at: %s", filePath)
 	fileString, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -144,11 +144,11 @@ func CheckConfig(options *Options) error {
 
 func (app *App) Run() error {
 	if app.options.PermitWrite {
-		log.Printf("Permitting clients to write input to the PTY.")
+		glog.Infof("Permitting clients to write input to the PTY.")
 	}
 
 	if app.options.Once {
-		log.Printf("Once option is provided, accepting only one client")
+		glog.Infof("Once option is provided, accepting only one client")
 	}
 
 	path := ""
@@ -168,7 +168,7 @@ func (app *App) Run() error {
 	var siteMux = http.NewServeMux()
 
 	if app.options.IndexFile != "" {
-		log.Printf("Using index file at " + app.options.IndexFile)
+		glog.Infof("Using index file at " + app.options.IndexFile)
 		siteMux.Handle(path+"/", customIndexHandler)
 	} else {
 		siteMux.Handle(path+"/", http.StripPrefix(path+"/", staticHandler))
@@ -180,7 +180,7 @@ func (app *App) Run() error {
 	siteHandler := http.Handler(siteMux)
 
 	if app.options.EnableBasicAuth {
-		log.Printf("Using Basic Authentication")
+		glog.Infof("Using Basic Authentication")
 		siteHandler = wrapBasicAuth(siteHandler, app.options.Credential)
 	}
 
@@ -197,18 +197,18 @@ func (app *App) Run() error {
 	if app.options.EnableTLS {
 		scheme = "https"
 	}
-	log.Printf(
-		"Server is starting with command: %s",
+	glog.Infof(
+		"Server is starting with command: %s\n",
 		strings.Join(app.command, " "),
 	)
 	if app.options.Address != "" {
-		log.Printf(
+		glog.Infof(
 			"URL: %s",
 			(&url.URL{Scheme: scheme, Host: endpoint, Path: path + "/"}).String(),
 		)
 	} else {
 		for _, address := range listAddresses() {
-			log.Printf(
+			glog.Infof(
 				"URL: %s",
 				(&url.URL{
 					Scheme: scheme,
@@ -230,8 +230,8 @@ func (app *App) Run() error {
 	if app.options.EnableTLS {
 		crtFile := ExpandHomeDir(app.options.TLSCrtFile)
 		keyFile := ExpandHomeDir(app.options.TLSKeyFile)
-		log.Printf("TLS crt file: " + crtFile)
-		log.Printf("TLS key file: " + keyFile)
+		glog.Infof("TLS crt file: " + crtFile)
+		glog.Infof("TLS key file: " + keyFile)
 
 		err = app.server.ListenAndServeTLS(crtFile, keyFile)
 	} else {
@@ -241,7 +241,7 @@ func (app *App) Run() error {
 		return err
 	}
 
-	log.Printf("Exiting...")
+	glog.Infof("Exiting...")
 
 	return nil
 }
@@ -254,7 +254,7 @@ func (app *App) makeServer(addr string, handler *http.Handler) (*http.Server, er
 
 	if app.options.EnableTLSClientAuth {
 		caFile := ExpandHomeDir(app.options.TLSCACrtFile)
-		log.Printf("CA file: " + caFile)
+		glog.Infof("CA file: " + caFile)
 		caCert, err := ioutil.ReadFile(caFile)
 		if err != nil {
 			return nil, errors.New("Could not open CA crt file " + caFile)
@@ -274,7 +274,7 @@ func (app *App) makeServer(addr string, handler *http.Handler) (*http.Server, er
 }
 
 func (app *App) handleWS(w http.ResponseWriter, r *http.Request) {
-	log.Printf("New client connected: %s", r.RemoteAddr)
+	glog.Infof("New client connected: %s", r.RemoteAddr)
 
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)
@@ -283,13 +283,13 @@ func (app *App) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := app.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Print("Failed to upgrade connection: " + err.Error())
+		glog.Infof("Failed to upgrade connection: " + err.Error())
 		return
 	}
 
 	_, stream, err := conn.ReadMessage()
 	if err != nil {
-		log.Print("Failed to authenticate websocket connection")
+		glog.Infof("Failed to authenticate websocket connection")
 		conn.Close()
 		return
 	}
@@ -297,12 +297,12 @@ func (app *App) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(stream, &init)
 	if err != nil {
-		log.Printf("Failed to parse init message %v", err)
+		glog.Infof("Failed to parse init message %v", err)
 		conn.Close()
 		return
 	}
 	if init.AuthToken != app.options.Credential {
-		log.Print("Failed to authenticate websocket connection")
+		glog.Infof("Failed to authenticate websocket connection")
 		conn.Close()
 		return
 	}
@@ -313,7 +313,7 @@ func (app *App) handleWS(w http.ResponseWriter, r *http.Request) {
 		}
 		query, err := url.Parse(init.Arguments)
 		if err != nil {
-			log.Print("Failed to parse arguments")
+			glog.Infof("Failed to parse arguments")
 			conn.Close()
 			return
 		}
@@ -327,10 +327,10 @@ func (app *App) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.Once {
 		if app.onceMutex.TryLock() { // no unlock required, it will die soon
-			log.Printf("Last client accepted, closing the listener.")
+			glog.Infof("Last client accepted, closing the listener.")
 			app.server.Close()
 		} else {
-			log.Printf("Server is already closing.")
+			glog.Infof("Server is already closing.")
 			conn.Close()
 			return
 		}
@@ -339,10 +339,10 @@ func (app *App) handleWS(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.Command(app.command[0], argv...)
 	ptyIo, err := pty.Start(cmd)
 	if err != nil {
-		log.Print("Failed to execute command")
+		glog.Errorln("Failed to execute command", err)
 		return
 	}
-	log.Printf("Command is running for client %s with PID %d (args=%q)", r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
+	glog.Infof("Command is running for client %s with PID %d (args=%q)", r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
 
 	context := &clientContext{
 		app:        app,
@@ -368,7 +368,7 @@ func (app *App) Exit() (firstCall bool) {
 	if app.server != nil {
 		firstCall = app.server.Close()
 		if firstCall {
-			log.Printf("Received Exit command, waiting for all clients to close sessions...")
+			glog.Infof("Received Exit command, waiting for all clients to close sessions...")
 		}
 		return firstCall
 	}
@@ -379,7 +379,7 @@ func wrapLogger(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &responseWrapper{w, 200}
 		handler.ServeHTTP(rw, r)
-		log.Printf("%s %d %s %s", r.RemoteAddr, rw.status, r.Method, r.URL.Path)
+		glog.Infof("%s %d %s %s", r.RemoteAddr, rw.status, r.Method, r.URL.Path)
 	})
 }
 
@@ -412,7 +412,7 @@ func wrapBasicAuth(handler http.Handler, credential string) http.Handler {
 			return
 		}
 
-		log.Printf("Basic Authentication Succeeded: %s", r.RemoteAddr)
+		glog.Infof("Basic Authentication Succeeded: %s", r.RemoteAddr)
 		handler.ServeHTTP(w, r)
 	})
 }

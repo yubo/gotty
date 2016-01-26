@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,6 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/fatih/structs"
+	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 )
 
@@ -79,13 +79,13 @@ func (context *clientContext) goHandleClient() {
 
 		context.command.Wait()
 		context.connection.Close()
-		log.Printf("Connection closed: %s", context.request.RemoteAddr)
+		glog.Infof("Connection closed: %s", context.request.RemoteAddr)
 	}()
 }
 
 func (context *clientContext) processSend() {
 	if err := context.sendInitialize(); err != nil {
-		log.Printf(err.Error())
+		glog.Errorln(err.Error())
 		return
 	}
 
@@ -94,12 +94,12 @@ func (context *clientContext) processSend() {
 	for {
 		size, err := context.pty.Read(buf)
 		if err != nil {
-			log.Printf("Command exited for: %s", context.request.RemoteAddr)
+			glog.Errorf("Command exited for: %s", context.request.RemoteAddr)
 			return
 		}
 		safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
 		if err = context.write(append([]byte{Output}, []byte(safeMessage)...)); err != nil {
-			log.Printf(err.Error())
+			glog.Errorln(err.Error())
 			return
 		}
 	}
@@ -158,11 +158,11 @@ func (context *clientContext) processReceive() {
 	for {
 		_, data, err := context.connection.ReadMessage()
 		if err != nil {
-			log.Print(err.Error())
+			glog.Errorln(err.Error())
 			return
 		}
 		if len(data) == 0 {
-			log.Print("An error has occured")
+			glog.Errorln("An error has occured")
 			return
 		}
 
@@ -179,14 +179,14 @@ func (context *clientContext) processReceive() {
 
 		case Ping:
 			if err := context.write([]byte{Pong}); err != nil {
-				log.Print(err.Error())
+				glog.Errorln(err.Error())
 				return
 			}
 		case ResizeTerminal:
 			var args argResizeTerminal
 			err = json.Unmarshal(data[1:], &args)
 			if err != nil {
-				log.Print("Malformed remote command")
+				glog.Errorln("Malformed remote command")
 				return
 			}
 
@@ -209,7 +209,7 @@ func (context *clientContext) processReceive() {
 			)
 
 		default:
-			log.Print("Unknown message type")
+			glog.Errorln("Unknown message type")
 			return
 		}
 	}

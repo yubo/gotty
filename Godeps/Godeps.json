@@ -8,11 +8,6 @@
 			"Rev": "9e2a2714de21eb092ead2ef56d8c7a60d7928819"
 		},
 		{
-			"ImportPath": "github.com/codegangsta/cli",
-			"Comment": "1.2.0-139-g142e6cd",
-			"Rev": "142e6cd241a4dfbf7f07a018f1f8225180018da4"
-		},
-		{
 			"ImportPath": "github.com/elazarl/go-bindata-assetfs",
 			"Rev": "d5cac425555ca5cf00694df246e04f05e6a55150"
 		},
