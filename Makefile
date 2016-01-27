@@ -56,6 +56,7 @@ release:
 	ghr --delete --prerelease -u yubo -r gotty pre-release ${OUTPUT_DIR}/dist
 
 install:
+	install -m 0755 -d /var/log/gotty
 	install -m 0755 gotty /usr/sbin/
 	install -m 0755 etc/init.d/gotty /etc/init.d/
 	install -m 0644 -D etc/gotty/gotty.conf /etc/gotty
