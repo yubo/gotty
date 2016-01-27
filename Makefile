@@ -1,13 +1,13 @@
 OUTPUT_DIR = ./builds
 
-gotty: app/resource.go main.go app/*.go
+gotty: tty/resource.go main.go tty/*.go
 	go build
 
-resource:  app/resource.go
+resource:  tty/resource.go
 
-app/resource.go: bindata/static/js/hterm.js bindata/static/js/gotty.js  bindata/static/index.html bindata/static/favicon.png
-	go-bindata -prefix bindata -pkg app -ignore=\\.gitkeep -o app/resource.go bindata/...
-	gofmt -w app/resource.go
+tty/resource.go: bindata/static/js/hterm.js bindata/static/js/gotty.js  bindata/static/index.html bindata/static/favicon.png
+	go-bindata -prefix bindata -pkg tty -ignore=\\.gitkeep -o tty/resource.go bindata/...
+	gofmt -w tty/resource.go
 
 bindata:
 	mkdir bindata
@@ -54,3 +54,9 @@ shasums:
 
 release:
 	ghr --delete --prerelease -u yubo -r gotty pre-release ${OUTPUT_DIR}/dist
+
+install:
+	install -m 0755 gotty /usr/sbin/
+	install -m 0755 etc/init.d/gotty /etc/init.d/
+	install -m 0644 -D etc/gotty/gotty.conf /etc/gotty
+	/usr/sbin/update-rc.d gotty defaults

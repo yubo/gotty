@@ -9,14 +9,13 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/yubo/gotool/flags"
-	"github.com/yubo/gotty/app"
+	"github.com/yubo/gotty/tty"
 )
 
 var (
 	configFile string
-	options    app.Options
+	options    tty.Options
 	version    bool
-	daemon     *flag.FlagSet
 )
 
 func init() {
@@ -25,47 +24,64 @@ func init() {
 
 	flag.BoolVar(&version, "version", false, "Print version")
 
-	//daemon
-	daemon = flags.NewCommand("daemon", "Enable daemon mode", flag.ExitOnError)
-	daemon.StringVar(&configFile, "config", "/etc/gotty/gotty.conf", "Config file path")
-	daemon.StringVar(&options.Address, "address",
-		app.DefaultOptions.Address, "IP address to listen")
-	daemon.StringVar(&options.Port, "port",
-		app.DefaultOptions.Port, "Port number to listen")
-	daemon.BoolVar(&options.PermitWrite, "permit-write",
-		app.DefaultOptions.PermitWrite, "Permit clients to write to the TTY (BE CAREFUL)")
-	daemon.StringVar(&options.Credential, "credential",
-		app.DefaultOptions.Credential, "Credential for Basic Authentication (ex: user:pass, default disabled)")
-	daemon.BoolVar(&options.EnableBasicAuth, "base-auth",
-		app.DefaultOptions.EnableBasicAuth, "Enable base auth")
-	daemon.BoolVar(&options.EnableRandomUrl, "random-url",
-		app.DefaultOptions.EnableRandomUrl, "Add a random string to the URL")
-	daemon.IntVar(&options.RandomUrlLength, "random-url-length",
-		app.DefaultOptions.RandomUrlLength, "Random URL length")
-	daemon.BoolVar(&options.EnableTLS, "tls",
-		app.DefaultOptions.EnableTLS, "Enable TLS/SSL")
-	daemon.BoolVar(&options.EnableTLSClientAuth, "tls-client",
-		app.DefaultOptions.EnableTLSClientAuth, "Enable client TLS/SSL")
-	daemon.StringVar(&options.TLSCrtFile, "tls-crt",
-		app.DefaultOptions.TLSCrtFile, "TLS/SSL certificate file path")
-	daemon.StringVar(&options.TLSKeyFile, "tls-key",
-		app.DefaultOptions.TLSKeyFile, "TLS/SSL key file path")
-	daemon.StringVar(&options.TLSCACrtFile, "tls-ca-crt",
-		app.DefaultOptions.TLSCACrtFile, "TLS/SSL CA certificate file for client certifications")
-	daemon.StringVar(&options.IndexFile, "index",
-		app.DefaultOptions.IndexFile, "Custom index.html file")
-	daemon.StringVar(&options.TitleFormat, "title-format",
-		app.DefaultOptions.TitleFormat, "Title format of browser window")
-	daemon.BoolVar(&options.EnableReconnect, "reconnect",
-		app.DefaultOptions.EnableReconnect, "Enable reconnection")
-	daemon.IntVar(&options.ReconnectTime, "reconnect-time",
-		app.DefaultOptions.ReconnectTime, "Time to reconnect")
-	daemon.BoolVar(&options.Once, "once",
-		app.DefaultOptions.Once, "Accept only one client and exit on disconnection")
-	daemon.BoolVar(&options.PermitArguments, "permit-arguments",
-		app.DefaultOptions.PermitArguments, "Permit clients to send command line arguments in URL (e.g. http://example.com:8080/?arg=AAA&arg=BBB)")
-	daemon.IntVar(&options.CloseSignal, "close-signal",
-		app.DefaultOptions.CloseSignal, "Signal sent to the command process when gotty close it (default: SIGHUP)")
+	// daemon
+	cmd := flags.NewCommand("daemon", "Enable daemon mode", flag.ExitOnError)
+	cmd.StringVar(&configFile, "c", "/etc/gotty/gotty.conf", "Config file path")
+
+	// ps
+	cmd = flags.NewCommand("ps", "List session", flag.ExitOnError)
+
+	// exec
+	cmd = flags.NewCommand("exec", "Run a command in a new pty", flag.ExitOnError)
+	cmd.BoolVar(&options.PermitWrite, "permit-write",
+		tty.DefaultOptions.PermitWrite, "Permit clients to write to the TTY (BE CAREFUL)")
+
+	// close
+	cmd = flags.NewCommand("close", "Close a pty", flag.ExitOnError)
+
+	// version
+	cmd = flags.NewCommand("version", "Show the gotty version information", flag.ExitOnError)
+
+	/*
+		cmd.StringVar(&options.Address, "address",
+			tty.DefaultOptions.Address, "IP address to listen")
+		cmd.StringVar(&options.Port, "port",
+			tty.DefaultOptions.Port, "Port number to listen")
+		cmd.BoolVar(&options.PermitWrite, "permit-write",
+			tty.DefaultOptions.PermitWrite, "Permit clients to write to the TTY (BE CAREFUL)")
+		cmd.StringVar(&options.Credential, "credential",
+			tty.DefaultOptions.Credential, "Credential for Basic Authentication (ex: user:pass, default disabled)")
+		cmd.BoolVar(&options.EnableBasicAuth, "base-auth",
+			tty.DefaultOptions.EnableBasicAuth, "Enable base auth")
+		cmd.BoolVar(&options.EnableRandomUrl, "random-url",
+			tty.DefaultOptions.EnableRandomUrl, "Add a random string to the URL")
+		cmd.IntVar(&options.RandomUrlLength, "random-url-length",
+			tty.DefaultOptions.RandomUrlLength, "Random URL length")
+		cmd.BoolVar(&options.EnableTLS, "tls",
+			tty.DefaultOptions.EnableTLS, "Enable TLS/SSL")
+		cmd.BoolVar(&options.EnableTLSClientAuth, "tls-client",
+			tty.DefaultOptions.EnableTLSClientAuth, "Enable client TLS/SSL")
+		cmd.StringVar(&options.TLSCrtFile, "tls-crt",
+			tty.DefaultOptions.TLSCrtFile, "TLS/SSL certificate file path")
+		cmd.StringVar(&options.TLSKeyFile, "tls-key",
+			tty.DefaultOptions.TLSKeyFile, "TLS/SSL key file path")
+		cmd.StringVar(&options.TLSCACrtFile, "tls-ca-crt",
+			tty.DefaultOptions.TLSCACrtFile, "TLS/SSL CA certificate file for client certifications")
+		cmd.StringVar(&options.IndexFile, "index",
+			tty.DefaultOptions.IndexFile, "Custom index.html file")
+		cmd.StringVar(&options.TitleFormat, "title-format",
+			tty.DefaultOptions.TitleFormat, "Title format of browser window")
+		cmd.BoolVar(&options.EnableReconnect, "reconnect",
+			tty.DefaultOptions.EnableReconnect, "Enable reconnection")
+		cmd.IntVar(&options.ReconnectTime, "reconnect-time",
+			tty.DefaultOptions.ReconnectTime, "Time to reconnect")
+		cmd.BoolVar(&options.Once, "once",
+			tty.DefaultOptions.Once, "Accept only one client and exit on disconnection")
+		cmd.BoolVar(&options.PermitArguments, "permit-arguments",
+			tty.DefaultOptions.PermitArguments, "Permit clients to send command line arguments in URL (e.g. http://example.com:8080/?arg=AAA&arg=BBB)")
+		cmd.IntVar(&options.CloseSignal, "close-signal",
+			tty.DefaultOptions.CloseSignal, "Signal sent to the command process when gotty close it (default: SIGHUP)")
+	*/
 
 }
 
@@ -73,33 +89,52 @@ func main() {
 	flags.Parse() //for glog
 
 	if version {
-		fmt.Fprintf(os.Stderr, "%s\n", app.Version)
+		fmt.Fprintf(os.Stdout, "%s\n", tty.Version)
 		os.Exit(0)
 	}
 
-	_, err := os.Stat(app.ExpandHomeDir(configFile))
+	_, err := os.Stat(tty.ExpandHomeDir(configFile))
 	if !os.IsNotExist(err) {
-		if err := app.ApplyConfigFile(&options, configFile); err != nil {
+		if err := tty.ApplyConfigFile(&options, configFile); err != nil {
 			exit(err, 2)
 		}
 	}
 
-	// overlay configFile
-	flags.Parse()
-
-	if err := app.CheckConfig(&options); err != nil {
-		exit(err, 6)
+	cmd := flags.CommandLine.Cmd
+	if cmd == nil {
+		// miss command
+		flags.Usage()
+		os.Exit(1)
 	}
 
-	app, err := app.New(daemon.Args(), &options)
-	if err != nil {
-		exit(err, 3)
-	}
+	switch cmd.Name {
+	case "daemon":
+		if err := tty.CheckConfig(&options); err != nil {
+			exit(err, 6)
+		}
 
-	registerSignals(app)
-	if err = app.Run(); err != nil {
-		exit(err, 4)
+		err := tty.Init(cmd.Flag.Args(), &options)
+		if err != nil {
+			exit(err, 3)
+		}
+
+		registerSignals()
+		if err = tty.Run(); err != nil {
+			exit(err, 4)
+		}
+	case "ps":
+		fmt.Fprintf(os.Stdout, "ps\n")
+	case "exec":
+		fmt.Fprintf(os.Stdout, "exec\n")
+	case "close":
+		fmt.Fprintf(os.Stdout, "close\n")
+	case "version":
+		fmt.Fprintf(os.Stdout, "%s\n", tty.Version)
+	default:
+		flags.Usage()
+		os.Exit(1)
 	}
+	return
 }
 
 func exit(err error, code int) {
@@ -109,7 +144,7 @@ func exit(err error, code int) {
 	os.Exit(code)
 }
 
-func registerSignals(app *app.App) {
+func registerSignals() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(
 		sigChan,
@@ -122,7 +157,7 @@ func registerSignals(app *app.App) {
 			s := <-sigChan
 			switch s {
 			case syscall.SIGINT, syscall.SIGTERM:
-				if app.Exit() {
+				if tty.Exit() {
 					glog.Infoln("Send ^C to force exit.")
 				} else {
 					os.Exit(5)

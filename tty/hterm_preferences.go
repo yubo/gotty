@@ -1,4 +1,4 @@
-package app
+package tty
 
 type HtermPrefernces struct {
 	AltGrMode                     *string                      `hcl:"alt_gr_mode"`

@@ -1,4 +1,4 @@
-package app
+package tty
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 )
 
 type clientContext struct {
-	app        *App
+	session    *Session
 	request    *http.Request
 	connection *websocket.Conn
 	command    *exec.Cmd
@@ -68,14 +68,14 @@ func (context *clientContext) goHandleClient() {
 	}()
 
 	go func() {
-		defer context.app.server.FinishRoutine()
+		defer context.session.tty.server.FinishRoutine()
 
 		<-exit
 		context.pty.Close()
 
 		// Even if the PTY has been closed,
 		// Read(0 in processSend() keeps blocking and the process doen't exit
-		context.command.Process.Signal(syscall.Signal(context.app.options.CloseSignal))
+		context.command.Process.Signal(syscall.Signal(context.session.tty.options.CloseSignal))
 
 		context.command.Wait()
 		context.connection.Close()
@@ -114,26 +114,26 @@ func (context *clientContext) write(data []byte) error {
 func (context *clientContext) sendInitialize() error {
 	hostname, _ := os.Hostname()
 	titleVars := ContextVars{
-		Command:    strings.Join(context.app.command, " "),
+		Command:    strings.Join(context.session.command, " "),
 		Pid:        context.command.Process.Pid,
 		Hostname:   hostname,
 		RemoteAddr: context.request.RemoteAddr,
 	}
 
 	titleBuffer := new(bytes.Buffer)
-	if err := context.app.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
+	if err := context.session.tty.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
 		return err
 	}
 	if err := context.write(append([]byte{SetWindowTitle}, titleBuffer.Bytes()...)); err != nil {
 		return err
 	}
 
-	prefStruct := structs.New(context.app.options.Preferences)
+	prefStruct := structs.New(context.session.tty.options.Preferences)
 	prefMap := prefStruct.Map()
 	htermPrefs := make(map[string]interface{})
 	for key, value := range prefMap {
 		rawKey := prefStruct.Field(key).Tag("hcl")
-		if _, ok := context.app.options.RawPreferences[rawKey]; ok {
+		if _, ok := context.session.tty.options.RawPreferences[rawKey]; ok {
 			htermPrefs[strings.Replace(rawKey, "_", "-", -1)] = value
 		}
 	}
@@ -145,8 +145,8 @@ func (context *clientContext) sendInitialize() error {
 	if err := context.write(append([]byte{SetPreferences}, prefs...)); err != nil {
 		return err
 	}
-	if context.app.options.EnableReconnect {
-		reconnect, _ := json.Marshal(context.app.options.ReconnectTime)
+	if context.session.tty.options.EnableReconnect {
+		reconnect, _ := json.Marshal(context.session.tty.options.ReconnectTime)
 		if err := context.write(append([]byte{SetReconnect}, reconnect...)); err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func (context *clientContext) processReceive() {
 
 		switch data[0] {
 		case Input:
-			if !context.app.options.PermitWrite {
+			if !context.session.tty.options.PermitWrite {
 				break
 			}
 

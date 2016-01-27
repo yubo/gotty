@@ -6,7 +6,7 @@
 // bindata/static/js/hterm.js
 // DO NOT EDIT!
 
-package app
+package tty
 
 import (
 	"bytes"
