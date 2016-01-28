@@ -1,12 +1,15 @@
 package tty
 
 import (
+	"container/list"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"flag"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -14,90 +17,77 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"text/template"
+	"time"
 
 	"github.com/braintree/manners"
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"github.com/kr/pty"
+	"github.com/yubo/gotool/flags"
 	"github.com/yubo/gotty/hcl"
 )
 
-type InitMessage struct {
-	Arguments string `json:"Arguments,omitempty"`
-	AuthToken string `json:"AuthToken,omitempty"`
-}
-
-type Tty struct {
-	options       *Options
-	upgrader      *websocket.Upgrader
-	titleTemplate *template.Template
-	server        *manners.GracefulServer
-	//onceMutex     *umutex.UnblockingMutex
-}
-
-type Session struct {
-	tty     *Tty
-	command []string
-}
-
-type Options struct {
-	Address             string                 `hcl:"address"`
-	Port                string                 `hcl:"port"`
-	PermitWrite         bool                   `hcl:"permit_write"`
-	EnableBasicAuth     bool                   `hcl:"enable_basic_auth"`
-	Credential          string                 `hcl:"credential"`
-	EnableRandomUrl     bool                   `hcl:"enable_random_url"`
-	RandomUrlLength     int                    `hcl:"random_url_length"`
-	IndexFile           string                 `hcl:"index_file"`
-	EnableTLS           bool                   `hcl:"enable_tls"`
-	TLSCrtFile          string                 `hcl:"tls_crt_file"`
-	TLSKeyFile          string                 `hcl:"tls_key_file"`
-	EnableTLSClientAuth bool                   `hcl:"enable_tls_client_auth"`
-	TLSCACrtFile        string                 `hcl:"tls_ca_crt_file"`
-	TitleFormat         string                 `hcl:"title_format"`
-	EnableReconnect     bool                   `hcl:"enable_reconnect"`
-	ReconnectTime       int                    `hcl:"reconnect_time"`
-	Once                bool                   `hcl:"once"`
-	PermitArguments     bool                   `hcl:"permit_arguments"`
-	CloseSignal         int                    `hcl:"close_signal"`
-	Preferences         HtermPrefernces        `hcl:"preferences"`
-	RawPreferences      map[string]interface{} `hcl:"preferences"`
-}
-
 var (
-	Version        = "0.0.12"
-	tty            *Tty
-	session        *Session
-	DefaultOptions = Options{
-		Address:             "",
-		Port:                "8080",
-		PermitWrite:         false,
-		EnableBasicAuth:     false,
-		Credential:          "",
-		EnableRandomUrl:     false,
-		RandomUrlLength:     8,
-		IndexFile:           "",
-		EnableTLS:           false,
-		TLSCrtFile:          "/etc/gotty/gotty.crt",
-		TLSKeyFile:          "/etc/gotty/gotty.key",
-		EnableTLSClientAuth: false,
-		TLSCACrtFile:        "/etc/gotty/gotty.ca.crt",
-		TitleFormat:         "GoTTY - {{ .Command }} ({{ .Hostname }})",
-		EnableReconnect:     false,
-		ReconnectTime:       10,
-		Once:                false,
-		CloseSignal:         1, // syscall.SIGHUP
-		Preferences:         HtermPrefernces{},
-	}
+	tty *Tty
+	//session   *Session
+	GlobalOpt Options = DefaultOptions
 )
 
-func Init(command []string, options *Options) error {
-	titleTemplate, err := template.New("title").Parse(options.TitleFormat)
+func init() {
+	flags.CommandLine.Usage = "Share your terminal as a web application"
+	flags.CommandLine.Name = "gotty"
+
+	// daemon
+	cmd := flags.NewCommand("daemon", "Enable daemon mode",
+		daemon_handle, flag.ExitOnError)
+	cmd.StringVar(&configFile, "c",
+		"/etc/gotty/gotty.conf", "Config file path")
+
+}
+
+func daemon_handle(arg interface{}) {
+	args := arg.(CallOptions).Args
+
+	if err := checkConfig(&GlobalOpt); err != nil {
+		exit(err, 6)
+	}
+
+	err := tty_init(&GlobalOpt, args)
+	if err != nil {
+		exit(err, 3)
+	}
+
+	registerSignals()
+	if err = run(); err != nil {
+		exit(err, 4)
+	}
+}
+
+func Parse() {
+
+	flags.Parse() //for glog
+
+	_, err := os.Stat(ExpandHomeDir(configFile))
+	if !os.IsNotExist(err) {
+		if err := applyConfigFile(&GlobalOpt, configFile); err != nil {
+			glog.Errorln(err)
+			os.Exit(2)
+		}
+	}
+
+}
+
+func tty_init(options *Options, command []string) error {
+	// called after Parse()
+
+	titleTemplate, err := template.New("title").Parse(GlobalOpt.TitleFormat)
 	if err != nil {
 		return errors.New("Title format string syntax error")
 	}
@@ -110,16 +100,57 @@ func Init(command []string, options *Options) error {
 			Subprotocols:    []string{"gotty"},
 		},
 		titleTemplate: titleTemplate,
+		session:       make(map[connKey]*session),
+		waitingConn:   &Slist{list: list.New()},
 	}
 
-	session = &Session{
-		tty:     tty,
-		command: command,
-	}
-	return nil
+	/*
+		session = &Session{
+			tty:     tty,
+			command: command,
+		}
+	*/
+
+	// waiting conn clean routine
+	go func() {
+		var n, e *list.Element
+		var sess *session
+		var now int64
+		t := time.NewTicker(time.Second).C
+		for {
+			select {
+			case <-t:
+				now = time.Now().Unix()
+				e = tty.waitingConn.list.Front()
+				for e != nil {
+					if e.Value.(*session).createTime+
+						int64(options.WaitingConnTime) > now {
+						break
+					}
+					n = e.Next()
+					sess = tty.waitingConn.Remove(e).(*session)
+
+					if sess.status == CONN_S_WAITING {
+						sess.Lock()
+						glog.Infof("name[%s] addr[%s] waiting conntion timeout\n",
+							sess.key.name, sess.key.addr)
+						//remove from tty.session
+						sess.status = CONN_S_CLOSED
+						delete(tty.session, sess.key)
+						sess.Unlock()
+					}
+
+					e = n
+				}
+
+			}
+		}
+	}()
+
+	return rpc_init()
 }
 
-func ApplyConfigFile(options *Options, filePath string) error {
+func applyConfigFile(options *Options, filePath string) error {
 	filePath = ExpandHomeDir(filePath)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return err
@@ -139,28 +170,26 @@ func ApplyConfigFile(options *Options, filePath string) error {
 	return nil
 }
 
-func CheckConfig(options *Options) error {
-	if options.EnableTLSClientAuth && !options.EnableTLS {
-		return errors.New("TLS client authentication is enabled, but TLS is not enabled")
+func checkConfig(options *Options) error {
+	if GlobalOpt.EnableTLSClientAuth && !GlobalOpt.EnableTLS {
+		return errors.New("TLS client authentication is enabled, " +
+			"but TLS is not enabled")
 	}
 	return nil
 }
 
-func Run() error {
-	if tty.options.PermitWrite {
-		glog.Infof("Permitting clients to write input to the PTY.")
-	}
+func run() error {
 
-	if tty.options.Once {
+	if GlobalOpt.Once {
 		glog.Infof("Once option is provided, accepting only one client")
 	}
 
 	path := ""
-	if tty.options.EnableRandomUrl {
-		path += "/" + generateRandomString(tty.options.RandomUrlLength)
+	if GlobalOpt.EnableRandomUrl {
+		path += "/" + generateRandomString(GlobalOpt.RandomUrlLength)
 	}
 
-	endpoint := net.JoinHostPort(tty.options.Address, tty.options.Port)
+	endpoint := net.JoinHostPort(GlobalOpt.Address, GlobalOpt.Port)
 
 	customIndexHandler := http.HandlerFunc(tty.handleCustomIndex)
 	authTokenHandler := http.HandlerFunc(tty.handleAuthToken)
@@ -170,8 +199,8 @@ func Run() error {
 
 	var siteMux = http.NewServeMux()
 
-	if tty.options.IndexFile != "" {
-		glog.Infof("Using index file at " + tty.options.IndexFile)
+	if GlobalOpt.IndexFile != "" {
+		glog.Infof("Using index file at " + GlobalOpt.IndexFile)
 		siteMux.Handle(path+"/", customIndexHandler)
 	} else {
 		siteMux.Handle(path+"/", http.StripPrefix(path+"/", staticHandler))
@@ -182,9 +211,9 @@ func Run() error {
 
 	siteHandler := http.Handler(siteMux)
 
-	if tty.options.EnableBasicAuth {
+	if GlobalOpt.EnableBasicAuth {
 		glog.Infof("Using Basic Authentication")
-		siteHandler = wrapBasicAuth(siteHandler, tty.options.Credential)
+		siteHandler = wrapBasicAuth(siteHandler, GlobalOpt.Credential)
 	}
 
 	siteHandler = wrapHeaders(siteHandler)
@@ -192,19 +221,20 @@ func Run() error {
 	wsMux := http.NewServeMux()
 	wsMux.Handle("/", siteHandler)
 	wsMux.Handle(path+"/ws", http.HandlerFunc(wsHandler))
-	siteHandler = (http.Handler(wsMux))
 
-	siteHandler = wrapLogger(siteHandler)
+	siteHandler = wrapLogger(http.Handler(wsMux))
 
 	scheme := "http"
-	if tty.options.EnableTLS {
+	if GlobalOpt.EnableTLS {
 		scheme = "https"
 	}
-	glog.Infof(
-		"Server is starting with command: %s\n",
-		strings.Join(session.command, " "),
-	)
-	if tty.options.Address != "" {
+	/*
+		glog.Infof(
+			"Server is starting with command: %s\n",
+			strings.Join(session.command, " ")
+		)
+	*/
+	if GlobalOpt.Address != "" {
 		glog.Infof(
 			"URL: %s",
 			(&url.URL{Scheme: scheme, Host: endpoint, Path: path + "/"}).String(),
@@ -215,7 +245,7 @@ func Run() error {
 				"URL: %s",
 				(&url.URL{
 					Scheme: scheme,
-					Host:   net.JoinHostPort(address, tty.options.Port),
+					Host:   net.JoinHostPort(address, GlobalOpt.Port),
 					Path:   path + "/",
 				}).String(),
 			)
@@ -228,9 +258,9 @@ func Run() error {
 	}
 	tty.server = manners.NewWithServer(server)
 
-	if tty.options.EnableTLS {
-		crtFile := ExpandHomeDir(tty.options.TLSCrtFile)
-		keyFile := ExpandHomeDir(tty.options.TLSKeyFile)
+	if GlobalOpt.EnableTLS {
+		crtFile := ExpandHomeDir(GlobalOpt.TLSCrtFile)
+		keyFile := ExpandHomeDir(GlobalOpt.TLSKeyFile)
 		glog.Infof("TLS crt file: " + crtFile)
 		glog.Infof("TLS key file: " + keyFile)
 
@@ -247,14 +277,29 @@ func Run() error {
 	return nil
 }
 
+func (tty *Tty) newWaitingConn(sess *session) error {
+	sess.Lock()
+	defer sess.Unlock()
+
+	if _, exsit := tty.session[sess.key]; !exsit {
+		tty.session[sess.key] = sess
+		tty.waitingConn.Push(sess)
+		return nil
+	} else {
+		return fmt.Errorf("the key name[%s] addr[%s] is exsit",
+			sess.key.name, sess.key.addr)
+	}
+
+}
+
 func makeServer(tty *Tty, addr string, handler *http.Handler) (*http.Server, error) {
 	server := &http.Server{
 		Addr:    addr,
 		Handler: *handler,
 	}
 
-	if tty.options.EnableTLSClientAuth {
-		caFile := ExpandHomeDir(tty.options.TLSCACrtFile)
+	if GlobalOpt.EnableTLSClientAuth {
+		caFile := ExpandHomeDir(GlobalOpt.TLSCACrtFile)
 		glog.Infof("CA file: " + caFile)
 		caCert, err := ioutil.ReadFile(caFile)
 		if err != nil {
@@ -275,8 +320,13 @@ func makeServer(tty *Tty, addr string, handler *http.Handler) (*http.Server, err
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
+	var init InitMessage
+	var key connKey
+	var session *session
+	var ok bool
+	var cip string
+
 	glog.Infof("New client connected: %s", r.RemoteAddr)
-	s := session
 
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)
@@ -295,7 +345,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-	var init InitMessage
 
 	err = json.Unmarshal(stream, &init)
 	if err != nil {
@@ -303,31 +352,64 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-	if init.AuthToken != s.tty.options.Credential {
+	if init.AuthToken != GlobalOpt.Credential {
 		glog.Infof("Failed to authenticate websocket connection")
 		conn.Close()
 		return
 	}
-	argv := s.command[1:]
-	if s.tty.options.PermitArguments {
-		if init.Arguments == "" {
-			init.Arguments = "?"
-		}
-		query, err := url.Parse(init.Arguments)
-		if err != nil {
-			glog.Infof("Failed to parse arguments")
-			conn.Close()
-			return
-		}
-		params := query.Query()["arg"]
-		if len(params) != 0 {
-			argv = append(argv, params...)
-		}
+
+	//if GlobalOpt.PermitArguments {
+	if init.Arguments == "" {
+		init.Arguments = "?"
+	}
+	query, err := url.Parse(init.Arguments)
+	if err != nil {
+		glog.Infof("Failed to parse arguments")
+		conn.Close()
+		return
 	}
 
-	s.tty.server.StartRoutine()
+	if params := query.Query()["name"]; len(params) != 0 {
+		key.name = params[0]
+	}
+	//}
+
+	if cip, _, err = net.SplitHostPort(r.RemoteAddr); err != nil {
+		glog.Infof("Failed to authenticate websocket connection")
+		conn.Close()
+		return
+	}
+
+	addrs := []string{cip, "0.0.0.0"}
+	for _, key.addr = range addrs {
+		if session, ok = tty.session[key]; ok {
+			break
+		}
+	}
+	if !ok {
+		glog.Infof("name:%s addr:%s is not exist\n", key.name, cip)
+		conn.Close()
+		return
+	}
+
+	argv := session.command[1:]
+	if params := query.Query()["arg"]; len(params) != 0 {
+		argv = append(argv, params...)
+	}
+	session.Lock()
+	defer session.Unlock()
+
+	if session.status != CONN_S_WAITING {
+		glog.Infof("name:%s addr:%s status is %s, not waiting\n",
+			key.name, key.addr, session.status)
+		conn.Close()
+		return
+	}
+
+	session.status = CONN_S_CONNECTED
+	tty.server.StartRoutine()
 	/*
-		if tty.options.Once {
+		if GlobalOpt.Once {
 			if tty.onceMutex.TryLock() { // no unlock required, it will die soon
 				glog.Infof("Last client accepted, closing the listener.")
 				s.server.Close()
@@ -338,35 +420,41 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	*/
-	cmd := exec.Command(s.command[0], argv...)
+	cmd := exec.Command(session.command[0], argv...)
 	ptyIo, err := pty.Start(cmd)
 	if err != nil {
 		glog.Errorln("Failed to execute command", err)
 		return
 	}
-	glog.Infof("Command is running for client %s with PID %d (args=%q)", r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
+	glog.Infof("Command is running for client %s with PID %d (args=%q)",
+		r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
 
-	context := &clientContext{
-		session:    s,
+	session.context = &clientContext{
+		session:    session,
 		request:    r,
 		connection: conn,
 		command:    cmd,
 		pty:        ptyIo,
 		writeMutex: &sync.Mutex{},
 	}
+	session.remoteAddr = r.RemoteAddr
+	session.connTime = time.Now().Unix()
 
-	context.goHandleClient()
+	session.context.goHandleClient()
 }
 
 func (tty *Tty) handleCustomIndex(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, ExpandHomeDir(tty.options.IndexFile))
+	http.ServeFile(w, r, ExpandHomeDir(GlobalOpt.IndexFile))
 }
 
 func (tty *Tty) handleAuthToken(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("var gotty_auth_token = '" + tty.options.Credential + "';"))
+	w.Write([]byte("var gotty_auth_token = '" + GlobalOpt.Credential + "';"))
 }
 
 func Exit() (firstCall bool) {
+
+	rpc_done()
+
 	if tty.server != nil {
 		firstCall = tty.server.Close()
 		if firstCall {
@@ -456,4 +544,31 @@ func ExpandHomeDir(path string) string {
 	} else {
 		return path
 	}
+}
+
+func exit(err error, code int) {
+	if err != nil {
+		glog.Errorln(err)
+	}
+	os.Exit(code)
+}
+
+func registerSignals() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(
+		sigChan,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+	)
+
+	go func() {
+		for {
+			s := <-sigChan
+			switch s {
+			case syscall.SIGINT, syscall.SIGTERM:
+				Exit()
+				os.Exit(1)
+			}
+		}
+	}()
 }

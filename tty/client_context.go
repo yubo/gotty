@@ -18,7 +18,7 @@ import (
 )
 
 type clientContext struct {
-	session    *Session
+	session    *session
 	request    *http.Request
 	connection *websocket.Conn
 	command    *exec.Cmd
@@ -68,17 +68,19 @@ func (context *clientContext) goHandleClient() {
 	}()
 
 	go func() {
-		defer context.session.tty.server.FinishRoutine()
+		defer tty.server.FinishRoutine()
 
 		<-exit
+		context.session.status = CONN_S_CLOSED
 		context.pty.Close()
 
 		// Even if the PTY has been closed,
 		// Read(0 in processSend() keeps blocking and the process doen't exit
-		context.command.Process.Signal(syscall.Signal(context.session.tty.options.CloseSignal))
+		context.command.Process.Signal(syscall.Signal(tty.options.CloseSignal))
 
 		context.command.Wait()
 		context.connection.Close()
+		delete(tty.session, context.session.key)
 		glog.Infof("Connection closed: %s", context.request.RemoteAddr)
 	}()
 }
@@ -121,19 +123,19 @@ func (context *clientContext) sendInitialize() error {
 	}
 
 	titleBuffer := new(bytes.Buffer)
-	if err := context.session.tty.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
+	if err := tty.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
 		return err
 	}
 	if err := context.write(append([]byte{SetWindowTitle}, titleBuffer.Bytes()...)); err != nil {
 		return err
 	}
 
-	prefStruct := structs.New(context.session.tty.options.Preferences)
+	prefStruct := structs.New(tty.options.Preferences)
 	prefMap := prefStruct.Map()
 	htermPrefs := make(map[string]interface{})
 	for key, value := range prefMap {
 		rawKey := prefStruct.Field(key).Tag("hcl")
-		if _, ok := context.session.tty.options.RawPreferences[rawKey]; ok {
+		if _, ok := tty.options.RawPreferences[rawKey]; ok {
 			htermPrefs[strings.Replace(rawKey, "_", "-", -1)] = value
 		}
 	}
@@ -145,8 +147,8 @@ func (context *clientContext) sendInitialize() error {
 	if err := context.write(append([]byte{SetPreferences}, prefs...)); err != nil {
 		return err
 	}
-	if context.session.tty.options.EnableReconnect {
-		reconnect, _ := json.Marshal(context.session.tty.options.ReconnectTime)
+	if tty.options.EnableReconnect {
+		reconnect, _ := json.Marshal(tty.options.ReconnectTime)
 		if err := context.write(append([]byte{SetReconnect}, reconnect...)); err != nil {
 			return err
 		}
@@ -168,7 +170,7 @@ func (context *clientContext) processReceive() {
 
 		switch data[0] {
 		case Input:
-			if !context.session.tty.options.PermitWrite {
+			if !context.session.options.PermitWrite {
 				break
 			}
 
