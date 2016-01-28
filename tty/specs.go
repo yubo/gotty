@@ -24,7 +24,6 @@ type Tty struct {
 	server        *manners.GracefulServer
 	session       map[connKey]*session
 	waitingConn   *Slist
-	//onceMutex     *umutex.UnblockingMutex
 }
 
 type Session_info struct {
