@@ -1,96 +1,15 @@
-# ![](https://raw.githubusercontent.com/yudai/gotty/master/resources/favicon.png) GoTTY - Share your terminal as a web application
+#GoTTY - Share your terminal as a web application
 
-[![GitHub release](http://img.shields.io/github/release/yudai/gotty.svg?style=flat-square)][release]
-[![Wercker](http://img.shields.io/wercker/ci/55d0eeff7331453f0801982c.svg?style=flat-square)][wercker]
+[![wercker status](https://app.wercker.com/status/fff04a43b1cdb0ea190ab9578eceeb17/s/master "wercker status")](https://app.wercker.com/project/bykey/fff04a43b1cdb0ea190ab9578eceeb17)
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)][license]
-[![Join the chat at https://gitter.im/yudai/gotty](http://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-brightgreen.svg?style=flat-square)][gitter]
 
-[release]: https://github.com/yudai/gotty/releases
-[wercker]: https://app.wercker.com/project/bykey/03b91f441bebeda34f80e09a9f14126f
-[license]: https://github.com/yudai/gotty/blob/master/LICENSE
-[gitter]: https://gitter.im/yudai/gotty?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+[release]: https://github.com/yubo/gotty/releases
+[wercker]: https://app.wercker.com/project/bykey/fff04a43b1cdb0ea190ab9578eceeb17
+[license]: https://github.com/yubo/gotty/blob/master/LICENSE
 
-GoTTY is a simple command line tool that turns your CLI tools into web applications.
-
-![Screenshot](https://raw.githubusercontent.com/yudai/gotty/master/screenshot.gif)
+GoTTY Fork from https://github.com/yudai/gotty.git. A simple command line tool that turns your CLI tools into web applications. 
 
 # Installation
-
-Download the latest binary file from the [Releases](https://github.com/yudai/gotty/releases) page.
-
-(`darwin_amd64.tar.gz` is for Mac OS X users)
-
-## Homebrew Installation
-
-You can install GoTTY with [Homebrew](http://brew.sh/) as well.
-
-```sh
-$ brew tap yudai/gotty
-$ brew install gotty
-```
-
-## `go get` Installation
-
-If you have a Go language environment, you can install GoTTY with the `go get` command.
-
-```sh
-$ go get github.com/yudai/gotty
-```
-
-# Usage
-
-```
-Usage: gotty [options] <command> [<arguments...>]
-```
-
-Run `gotty` with your preferred command as its arguments (e.g. `gotty top`).
-
-By default, GoTTY starts a web server at port 8080. Open the URL on your web browser and you can see the running command as if it were running on your terminal.
-
-## Options
-
-```
---address, -a                                                IP address to listen [$GOTTY_ADDRESS]
---port, -p "8080"                                            Port number to listen [$GOTTY_PORT]
---permit-write, -w                                           Permit clients to write to the TTY (BE CAREFUL) [$GOTTY_PERMIT_WRITE]
---credential, -c                                             Credential for Basic Authentication (ex: user:pass, default disabled) [$GOTTY_CREDENTIAL]
---random-url, -r                                             Add a random string to the URL [$GOTTY_RANDOM_URL]
---random-url-length "8"                                      Random URL length [$GOTTY_RANDOM_URL_LENGTH]
---tls, -t                                                    Enable TLS/SSL [$GOTTY_TLS]
---tls-crt "~/.gotty.crt"                                     TLS/SSL certificate file path [$GOTTY_TLS_CRT]
---tls-key "~/.gotty.key"                                     TLS/SSL key file path [$GOTTY_TLS_KEY]
---tls-ca-crt "~/.gotty.ca.crt"                               TLS/SSL CA certificate file for client certifications [$GOTTY_TLS_CA_CRT]
---index                                                      Custom index.html file [$GOTTY_INDEX]
---title-format "GoTTY - {{ .Command }} ({{ .Hostname }})"    Title format of browser window [$GOTTY_TITLE_FORMAT]
---reconnect                                                  Enable reconnection [$GOTTY_RECONNECT]
---reconnect-time "10"                                        Time to reconnect [$GOTTY_RECONNECT_TIME]
---once                                                       Accept only one client and exit on disconnection [$GOTTY_ONCE]
---permit-arguments                                           Permit clients to send command line arguments in URL (e.g. http://example.com:8080/?arg=AAA&arg=BBB) [$GOTTY_PERMIT_ARGUMENTS]
---close-signal "1"                                           Signal sent to the command process when gotty close it (default: SIGHUP) [$GOTTY_CLOSE_SIGNAL]
---config "~/.gotty"                                          Config file path [$GOTTY_CONFIG]
---version, -v                                                print the version
-```
-
-### Config File
-
-You can customize default options and your terminal (hterm) by providing a config file to the `gotty` command. GoTTY loads a profile file at `~/.gotty` by default when it exists.
-
-```
-// Listen at port 9000 by default
-port = "9000"
-
-// Enable TSL/SSL by default
-enable_tls = true
-
-// hterm preferences
-// Smaller font and a little bit bluer background color
-preferences {
-    font_size = 5,
-    background_color = "rgb(16, 16, 32)"
-}
-```
-
-See the [`.gotty`](https://github.com/yudai/gotty/blob/master/.gotty) file in this repository for the list of configuration options.
 
 ### Security Options
 
@@ -112,34 +31,10 @@ For additional security, you can use the SSL/TLS client certificate authenticati
 
 ## Sharing with Multiple Clients
 
-GoTTY starts a new process with the given command when a new client connects to the server. This means users cannot share a single terminal with others by default. However, you can use terminal multiplexers for sharing a single process with multiple clients.
-
-For example, you can start a new tmux session named `gotty` with `top` command by the command below.
-
-```sh
-$ gotty tmux new -A -s gotty top
-```
-
-This command doesn't allow clients to send keystrokes, however, you can attach the session from your local terminal and run operations like switching the mode of the `top` command. To connect to the tmux session from your terminal, you can use following command.
-
-```sh
-$ tmux new -A -s gotty
-```
-
-By using terminal multiplexers, you can have the control of your terminal and allow clients to just see your screen.
 
 ### Quick Sharing on tmux
 
-To share your current session with others by a shortcut key, you can add a line like below to your `.tmux.conf`.
-
-```
-# Start GoTTY in a new window with C-t
-bind-key C-t new-window "gotty tmux attach -t `tmux display -p '#S'`"
-```
-
 ## Playing with Docker
-
-When you want to create a jailed environment for each client, you can use Docker containers like following:
 
 ```sh
 $ gotty -w docker run -it --rm busybox
@@ -154,21 +49,12 @@ You can build a binary using the following commands. Windows is not supported no
 go get github.com/jteeuwen/go-bindata/...
 go get github.com/tools/godep
 
-# Checkout hterm
-git submodule sync && git submodule update --init --recursive
-
 # Restore libraries in Godeps
 godep restore
 
 # Build
 make
 ```
-
-## Architecture
-
-GoTTY uses [hterm](https://groups.google.com/a/chromium.org/forum/#!forum/chromium-hterm) to run a JavaScript based terminal on web browsers. GoTTY itself provides a websocket server that simply relays output from the TTY to clients and receives input from clients and forwards it to the TTY. This hterm + websocket idea is inspired by [Wetty](https://github.com/krishnasrinivas/wetty).
-
-## Alternatives
 
 ### Command line client
 
