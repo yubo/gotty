@@ -80,6 +80,7 @@ type CmdOptions struct {
 	Name        string
 	Addr        string
 	PermitWrite bool
+	PermitShare bool
 }
 
 const (
@@ -116,5 +117,6 @@ var (
 	DefaultCmdOptions = CmdOptions{
 		Name:        "",
 		PermitWrite: false,
+		PermitShare: false,
 	}
 )

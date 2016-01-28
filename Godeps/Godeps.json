@@ -1,11 +1,21 @@
 {
 	"ImportPath": "github.com/yubo/gotty",
-	"GoVersion": "go1.5.1",
+	"GoVersion": "go1.5",
 	"Deps": [
 		{
 			"ImportPath": "github.com/braintree/manners",
 			"Comment": "0.4.0-6-g9e2a271",
 			"Rev": "9e2a2714de21eb092ead2ef56d8c7a60d7928819"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/namesgenerator",
+			"Comment": "v1.4.1-7166-g75128c4",
+			"Rev": "75128c46c7881325c87de8797b455534558784ed"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/random",
+			"Comment": "v1.4.1-7166-g75128c4",
+			"Rev": "75128c46c7881325c87de8797b455534558784ed"
 		},
 		{
 			"ImportPath": "github.com/elazarl/go-bindata-assetfs",
@@ -14,6 +24,10 @@
 		{
 			"ImportPath": "github.com/fatih/structs",
 			"Rev": "a9f7daa9c2729e97450c2da2feda19130a367d8f"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "fca8c8854093a154ff1eb580aae10276ad6b1b5f"
 		},
 		{
 			"ImportPath": "github.com/gorilla/websocket",
@@ -27,6 +41,10 @@
 			"ImportPath": "github.com/kr/pty",
 			"Comment": "release.r56-28-g5cf931e",
 			"Rev": "5cf931ef8f76dccd0910001d74a58a7fca84a83d"
+		},
+		{
+			"ImportPath": "github.com/yubo/gotool/flags",
+			"Rev": "b1459bfaa4deeb33c4fa1586a883c0639d7591dd"
 		}
 	]
 }
