@@ -124,6 +124,7 @@ const (
 	CONN_S_CONNECTED = "connected"
 	CONN_S_CLOSED    = "closed"
 	CONN_M_EXEC      = "exec"
+	CONN_M_SHARE     = "share"
 	CONN_M_ATTACH    = "attach"
 )
 

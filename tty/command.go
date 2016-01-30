@@ -27,7 +27,9 @@ func init() {
 	cmd.BoolVar(&CmdOpt.PermitWrite, "w", DefaultCmdOptions.PermitWrite,
 		"Permit clients to write to the TTY (BE CAREFUL)")
 	cmd.BoolVar(&CmdOpt.PermitShare, "share", DefaultCmdOptions.PermitShare,
-		"Permit clients to join the TTY (BE CAREFULL with -w)")
+		"Permit clients to join the TTY (BE CAREFULL with -a)")
+	cmd.BoolVar(&CmdOpt.All, "a", DefaultCmdOptions.PermitShare,
+		"Permit joined clients to wirte to the TTY(BE CAREFULL)")
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
 	cmd.StringVar(&CmdOpt.Addr, "addr", "0.0.0.0", "allow ipv4 address")
 

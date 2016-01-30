@@ -286,6 +286,77 @@ func makeServer(tty *Tty, addr string, handler *http.Handler) (*http.Server, err
 	return server, nil
 }
 
+func ws_clone(sess *session, r *http.Request,
+	query *url.URL, conn *websocket.Conn, cip string) error {
+	key := ConnKey{Addr: cip}
+	if err := keyGenerator(&key); err != nil {
+		return err
+	}
+	sess.linkNb += 1
+	opt := *sess.options
+	if !(opt.PermitWrite && opt.PermitShare) {
+		opt.PermitWrite = false
+	}
+	s := &session{
+		key:        key,
+		linkTo:     sess,
+		linkNb:     1,
+		status:     CONN_S_CONNECTED,
+		method:     CONN_M_SHARE,
+		createTime: time.Now().Unix(),
+		connTime:   time.Now().Unix(),
+		options:    &opt,
+		command:    sess.command,
+		context: &clientContext{
+			request:     r,
+			connection:  &webConn{conn: conn},
+			connections: sess.context.connections,
+			command:     sess.context.command,
+			pty:         sess.context.pty,
+			connRx:      sess.context.connRx,
+		},
+	}
+	s.context.session = s
+	tty.session[key] = s
+	return s.context.goHandleClientJoin()
+}
+
+func ws_connect(session *session, r *http.Request,
+	query *url.URL, conn *websocket.Conn) {
+	argv := session.command[1:]
+	if params := query.Query()["arg"]; len(params) != 0 {
+		argv = append(argv, params...)
+	}
+
+	cmd := exec.Command(session.command[0], argv...)
+	ptyIo, err := pty.Start(cmd)
+	if err != nil {
+		glog.Errorln("Failed to execute command", err)
+		delete(tty.session, session.key)
+		conn.Close()
+		return
+	}
+	tty.server.StartRoutine()
+	session.connTime = time.Now().Unix()
+	session.status = CONN_S_CONNECTED
+
+	glog.Infof("Command is running for client %s with PID %d (args=%q)",
+		r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
+
+	conns := make(map[ConnKey]*webConn)
+
+	session.context = &clientContext{
+		session:     session,
+		request:     r,
+		connection:  &webConn{conn: conn},
+		connections: &conns,
+		command:     cmd,
+		pty:         ptyIo,
+		connRx:      make(chan *connRx),
+	}
+	session.context.goHandleClient()
+}
+
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	var init InitMessage
 	var key ConnKey
@@ -358,51 +429,30 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
+
 	session.Lock()
 	defer session.Unlock()
 
-	if session.status != CONN_S_WAITING {
-		glog.Infof("name:%s addr:%s status is %s, not waiting\n",
-			key.Name, key.Addr, session.status)
-		conn.Close()
-		return
-	}
-
 	if session.method == CONN_M_EXEC {
-
-		argv := session.command[1:]
-		if params := query.Query()["arg"]; len(params) != 0 {
-			argv = append(argv, params...)
-		}
-
-		cmd := exec.Command(session.command[0], argv...)
-		ptyIo, err := pty.Start(cmd)
-		if err != nil {
-			glog.Errorln("Failed to execute command", err)
-			delete(tty.session, session.key)
+		if session.status == CONN_S_CONNECTED &&
+			session.options.PermitShare {
+			ws_clone(session, r, query, conn, cip)
+		} else if session.status == CONN_S_WAITING {
+			ws_connect(session, r, query, conn)
+			return
+		} else {
+			glog.Infof("name:%s addr:%s status is %s, not allow to connect\n",
+				key.Name, key.Addr, session.status)
 			conn.Close()
 			return
 		}
-		tty.server.StartRoutine()
-		session.connTime = time.Now().Unix()
-		session.status = CONN_S_CONNECTED
-
-		glog.Infof("Command is running for client %s with PID %d (args=%q)",
-			r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
-
-		conns := make(map[ConnKey]*webConn)
-
-		session.context = &clientContext{
-			session:     session,
-			request:     r,
-			connection:  &webConn{conn: conn},
-			connections: &conns,
-			command:     cmd,
-			pty:         ptyIo,
-			connRx:      make(chan *connRx),
-		}
-		session.context.goHandleClient()
 	} else if session.method == CONN_M_ATTACH {
+		if session.status != CONN_S_WAITING {
+			glog.Infof("name:%s addr:%s status is %s, not waiting\n",
+				key.Name, key.Addr, session.status)
+			conn.Close()
+			return
+		}
 		session.linkTo.Lock()
 		defer session.linkTo.Unlock()
 
