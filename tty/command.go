@@ -33,7 +33,7 @@ func init() {
 
 	// ps
 	cmd = flags.NewCommand("ps", "List session", ps_handle, flag.ExitOnError)
-	cmd.BoolVar(&CmdOpt.ShowAll, "a", false,
+	cmd.BoolVar(&CmdOpt.All, "a", false,
 		"Show all session(default show just "+
 			CONN_S_CONNECTED+"/"+CONN_S_WAITING+")")
 
@@ -48,9 +48,11 @@ func init() {
 	cmd.StringVar(&CmdOpt.SAddr, "saddr", "0.0.0.0", "attach to the session addr")
 
 	// close
-	cmd = flags.NewCommand("close", "Close a pty", close_handle, flag.ExitOnError)
+	cmd = flags.NewCommand("close", "Close a pty/session", close_handle, flag.ExitOnError)
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
 	cmd.StringVar(&CmdOpt.Addr, "addr", "0.0.0.0", "allow ipv4 address")
+	cmd.BoolVar(&CmdOpt.All, "a", false,
+		"Close all session use the same pty(default close just a seesion)")
 
 	// version
 	cmd = flags.NewCommand("version",
@@ -101,7 +103,7 @@ func ps_handle(arg interface{}) {
 		"Name", "PName", "", "Method", "Status",
 		"Command", "RemoteAddr", "ConnTime")
 	for _, s := range ret {
-		if !CmdOpt.ShowAll && s.Status == CONN_S_CLOSED {
+		if !CmdOpt.All && s.Status == CONN_S_CLOSED {
 			continue
 		}
 		if s.ConnTime > 0 {
@@ -126,8 +128,12 @@ func attach_handle(arg interface{}) {
 
 func close_handle(arg interface{}) {
 	opt := arg.(*CallOptions)
-	err := Call("Cmd.Close", opt, nil)
-	fmt.Fprintf(os.Stdout, "close %v\n", opt, err)
+	if err := Call("Cmd.Close", opt, nil); err != nil {
+		fmt.Fprintf(os.Stderr, err.Error())
+		os.Exit(1)
+	} else {
+		fmt.Fprintf(os.Stdout, "close successful\n")
+	}
 }
 
 func version_handle(arg interface{}) {

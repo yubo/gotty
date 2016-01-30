@@ -269,7 +269,7 @@ func (context *clientContext) processReceive() {
 
 		switch rx.p[0] {
 		case Input:
-			if !context.session.options.PermitWrite {
+			if !tty.session[rx.key].options.PermitWrite {
 				break
 			}
 

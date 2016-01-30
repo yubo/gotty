@@ -50,6 +50,14 @@ $gotty-client http://127.0.0.1:9000/?name=bbb
 $gotty ps -a
 ```
 
+#### close a pty/session
+```shell
+#Close all session use the same pty(name:abc,addr:0.0.0.0)
+$gotty close -a -name abc
+#Just close a session
+$gotty close -name abc
+```
+
 
 # Installation
 ---

@@ -101,6 +101,26 @@ func (c *Cmd) Attach(arg CallOptions, key *ConnKey) error {
 			skey.Name, skey.Addr)
 	}
 }
+func (c *Cmd) Close(arg *CallOptions, keys *[]ConnKey) error {
+	key := ConnKey{Name: arg.Opt.Name, Addr: arg.Opt.Addr}
+
+	s, ok := tty.session[key]
+	if !ok {
+		return fmt.Errorf("session{name:\"%s\", addr:\"%s\"} is not exist",
+			key.Name, key.Addr)
+	}
+
+	if !arg.Opt.All {
+		*keys = append(*keys, key)
+		s.context.close(key)
+	} else {
+		for k, _ := range *s.context.connections {
+			*keys = append(*keys, k)
+			s.context.close(k)
+		}
+	}
+	return nil
+}
 
 func keyGenerator(key *ConnKey) error {
 	for i := 0; i < 10; i++ {

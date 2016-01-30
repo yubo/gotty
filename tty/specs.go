@@ -94,7 +94,7 @@ type CmdOptions struct {
 	Addr        string
 	SName       string
 	SAddr       string
-	ShowAll     bool
+	All         bool
 	PermitWrite bool
 	PermitShare bool
 }
