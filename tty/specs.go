@@ -1,6 +1,7 @@
 package tty
 
 import (
+	"fmt"
 	"sync"
 	"text/template"
 
@@ -13,8 +14,16 @@ type InitMessage struct {
 	AuthToken string `json:"AuthToken,omitempty"`
 }
 
-type connKey struct {
-	name, addr string
+type ConnKey struct {
+	Name string
+	Addr string
+}
+
+func (k ConnKey) String() string {
+	if k.Name == "" && k.Addr == "" {
+		return "NULL"
+	}
+	return fmt.Sprintf("%s/%s", k.Name, k.Addr)
 }
 
 type Tty struct {
@@ -22,23 +31,28 @@ type Tty struct {
 	upgrader      *websocket.Upgrader
 	titleTemplate *template.Template
 	server        *manners.GracefulServer
-	session       map[connKey]*session
+	session       map[ConnKey]*session
 	waitingConn   *Slist
 }
 
 type Session_info struct {
-	Name       string
-	Addr       string
+	Key        ConnKey
+	PKey       ConnKey
+	Method     string
+	Status     string
 	Command    []string
 	RemoteAddr string
 	ConnTime   int64
+	LinkNb     int32
 }
 
 type session struct {
-	sync.RWMutex
-	key        connKey
+	sync.Mutex
+	key        ConnKey
+	linkTo     *session
+	linkNb     int32
+	method     string
 	status     string
-	remoteAddr string
 	createTime int64
 	connTime   int64
 	options    *CmdOptions
@@ -78,8 +92,28 @@ type CallOptions struct {
 type CmdOptions struct {
 	Name        string
 	Addr        string
+	SName       string
+	SAddr       string
+	ShowAll     bool
 	PermitWrite bool
 	PermitShare bool
+}
+
+type connRx struct {
+	key         ConnKey
+	messageType int
+	p           []byte
+	err         error
+}
+
+type webConn struct {
+	sync.Mutex
+	conn *websocket.Conn
+}
+
+type connErr struct {
+	key ConnKey
+	err error
 }
 
 const (
@@ -89,6 +123,8 @@ const (
 	CONN_S_WAITING   = "waiting"
 	CONN_S_CONNECTED = "connected"
 	CONN_S_CLOSED    = "closed"
+	CONN_M_EXEC      = "exec"
+	CONN_M_ATTACH    = "attach"
 )
 
 var (

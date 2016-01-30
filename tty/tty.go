@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -20,7 +19,6 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"text/template"
 	"time"
@@ -40,41 +38,10 @@ var (
 	GlobalOpt Options = DefaultOptions
 )
 
-func init() {
-	flags.CommandLine.Usage = "Share your terminal as a web application"
-	flags.CommandLine.Name = "gotty"
-
-	// daemon
-	cmd := flags.NewCommand("daemon", "Enable daemon mode",
-		daemon_handle, flag.ExitOnError)
-	cmd.StringVar(&configFile, "c",
-		"/etc/gotty/gotty.conf", "Config file path")
-
-}
-
-func daemon_handle(arg interface{}) {
-	args := arg.(CallOptions).Args
-
-	if err := checkConfig(&GlobalOpt); err != nil {
-		exit(err, 6)
-	}
-
-	err := tty_init(&GlobalOpt, args)
-	if err != nil {
-		exit(err, 3)
-	}
-
-	registerSignals()
-	if err = run(); err != nil {
-		exit(err, 4)
-	}
-}
-
 func Parse() {
-
 	flags.Parse() //for glog
 
-	_, err := os.Stat(ExpandHomeDir(configFile))
+	_, err := os.Stat(expandHomeDir(configFile))
 	if !os.IsNotExist(err) {
 		if err := applyConfigFile(&GlobalOpt, configFile); err != nil {
 			glog.Errorln(err)
@@ -100,7 +67,7 @@ func tty_init(options *Options, command []string) error {
 			Subprotocols:    []string{"gotty"},
 		},
 		titleTemplate: titleTemplate,
-		session:       make(map[connKey]*session),
+		session:       make(map[ConnKey]*session),
 		waitingConn:   &Slist{list: list.New()},
 	}
 
@@ -133,7 +100,7 @@ func tty_init(options *Options, command []string) error {
 					if sess.status == CONN_S_WAITING {
 						sess.Lock()
 						glog.Infof("name[%s] addr[%s] waiting conntion timeout\n",
-							sess.key.name, sess.key.addr)
+							sess.key.Name, sess.key.Addr)
 						//remove from tty.session
 						sess.status = CONN_S_CLOSED
 						delete(tty.session, sess.key)
@@ -151,7 +118,7 @@ func tty_init(options *Options, command []string) error {
 }
 
 func applyConfigFile(options *Options, filePath string) error {
-	filePath = ExpandHomeDir(filePath)
+	filePath = expandHomeDir(filePath)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return err
 	}
@@ -259,8 +226,8 @@ func run() error {
 	tty.server = manners.NewWithServer(server)
 
 	if GlobalOpt.EnableTLS {
-		crtFile := ExpandHomeDir(GlobalOpt.TLSCrtFile)
-		keyFile := ExpandHomeDir(GlobalOpt.TLSKeyFile)
+		crtFile := expandHomeDir(GlobalOpt.TLSCrtFile)
+		keyFile := expandHomeDir(GlobalOpt.TLSKeyFile)
 		glog.Infof("TLS crt file: " + crtFile)
 		glog.Infof("TLS key file: " + keyFile)
 
@@ -287,7 +254,7 @@ func (tty *Tty) newWaitingConn(sess *session) error {
 		return nil
 	} else {
 		return fmt.Errorf("the key name[%s] addr[%s] is exsit",
-			sess.key.name, sess.key.addr)
+			sess.key.Name, sess.key.Addr)
 	}
 
 }
@@ -299,7 +266,7 @@ func makeServer(tty *Tty, addr string, handler *http.Handler) (*http.Server, err
 	}
 
 	if GlobalOpt.EnableTLSClientAuth {
-		caFile := ExpandHomeDir(GlobalOpt.TLSCACrtFile)
+		caFile := expandHomeDir(GlobalOpt.TLSCACrtFile)
 		glog.Infof("CA file: " + caFile)
 		caCert, err := ioutil.ReadFile(caFile)
 		if err != nil {
@@ -321,7 +288,7 @@ func makeServer(tty *Tty, addr string, handler *http.Handler) (*http.Server, err
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	var init InitMessage
-	var key connKey
+	var key ConnKey
 	var session *session
 	var ok bool
 	var cip string
@@ -370,7 +337,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if params := query.Query()["name"]; len(params) != 0 {
-		key.name = params[0]
+		key.Name = params[0]
 	}
 	//}
 
@@ -381,70 +348,81 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	addrs := []string{cip, "0.0.0.0"}
-	for _, key.addr = range addrs {
+	for _, key.Addr = range addrs {
 		if session, ok = tty.session[key]; ok {
 			break
 		}
 	}
 	if !ok {
-		glog.Infof("name:%s addr:%s is not exist\n", key.name, cip)
+		glog.Infof("name:%s addr:%s is not exist\n", key.Name, cip)
 		conn.Close()
 		return
-	}
-
-	argv := session.command[1:]
-	if params := query.Query()["arg"]; len(params) != 0 {
-		argv = append(argv, params...)
 	}
 	session.Lock()
 	defer session.Unlock()
 
 	if session.status != CONN_S_WAITING {
 		glog.Infof("name:%s addr:%s status is %s, not waiting\n",
-			key.name, key.addr, session.status)
+			key.Name, key.Addr, session.status)
 		conn.Close()
 		return
 	}
 
-	session.status = CONN_S_CONNECTED
-	tty.server.StartRoutine()
-	/*
-		if GlobalOpt.Once {
-			if tty.onceMutex.TryLock() { // no unlock required, it will die soon
-				glog.Infof("Last client accepted, closing the listener.")
-				s.server.Close()
-			} else {
-				glog.Infof("Session is already closing.")
-				conn.Close()
-				return
-			}
+	if session.method == CONN_M_EXEC {
+
+		argv := session.command[1:]
+		if params := query.Query()["arg"]; len(params) != 0 {
+			argv = append(argv, params...)
 		}
-	*/
-	cmd := exec.Command(session.command[0], argv...)
-	ptyIo, err := pty.Start(cmd)
-	if err != nil {
-		glog.Errorln("Failed to execute command", err)
-		return
-	}
-	glog.Infof("Command is running for client %s with PID %d (args=%q)",
-		r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
 
-	session.context = &clientContext{
-		session:    session,
-		request:    r,
-		connection: conn,
-		command:    cmd,
-		pty:        ptyIo,
-		writeMutex: &sync.Mutex{},
-	}
-	session.remoteAddr = r.RemoteAddr
-	session.connTime = time.Now().Unix()
+		cmd := exec.Command(session.command[0], argv...)
+		ptyIo, err := pty.Start(cmd)
+		if err != nil {
+			glog.Errorln("Failed to execute command", err)
+			delete(tty.session, session.key)
+			conn.Close()
+			return
+		}
+		tty.server.StartRoutine()
+		session.connTime = time.Now().Unix()
+		session.status = CONN_S_CONNECTED
 
-	session.context.goHandleClient()
+		glog.Infof("Command is running for client %s with PID %d (args=%q)",
+			r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
+
+		conns := make(map[ConnKey]*webConn)
+
+		session.context = &clientContext{
+			session:     session,
+			request:     r,
+			connection:  &webConn{conn: conn},
+			connections: &conns,
+			command:     cmd,
+			pty:         ptyIo,
+			connRx:      make(chan *connRx),
+		}
+		session.context.goHandleClient()
+	} else if session.method == CONN_M_ATTACH {
+		session.linkTo.Lock()
+		defer session.linkTo.Unlock()
+
+		session.connTime = time.Now().Unix()
+		session.status = CONN_S_CONNECTED
+		session.context = &clientContext{
+			session:     session,
+			request:     r,
+			connection:  &webConn{conn: conn},
+			connections: session.linkTo.context.connections,
+			command:     session.linkTo.context.command,
+			pty:         session.linkTo.context.pty,
+			connRx:      session.linkTo.context.connRx,
+		}
+		session.context.goHandleClientJoin()
+	}
 }
 
 func (tty *Tty) handleCustomIndex(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, ExpandHomeDir(GlobalOpt.IndexFile))
+	http.ServeFile(w, r, expandHomeDir(GlobalOpt.IndexFile))
 }
 
 func (tty *Tty) handleAuthToken(w http.ResponseWriter, r *http.Request) {
@@ -469,7 +447,7 @@ func wrapLogger(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &responseWrapper{w, 200}
 		handler.ServeHTTP(rw, r)
-		glog.Infof("%s %d %s %s", r.RemoteAddr, rw.status, r.Method, r.URL.Path)
+		//glog.Infof("%s %d %s %s", r.RemoteAddr, rw.status, r.Method, r.URL.Path)
 	})
 }
 
@@ -538,19 +516,12 @@ func listAddresses() (addresses []string) {
 	return
 }
 
-func ExpandHomeDir(path string) string {
+func expandHomeDir(path string) string {
 	if path[0:2] == "~/" {
 		return os.Getenv("HOME") + path[1:]
 	} else {
 		return path
 	}
-}
-
-func exit(err error, code int) {
-	if err != nil {
-		glog.Errorln(err)
-	}
-	os.Exit(code)
 }
 
 func registerSignals() {

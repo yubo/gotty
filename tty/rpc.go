@@ -2,6 +2,7 @@ package tty
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
@@ -17,44 +18,93 @@ var (
 
 type Cmd int
 
-func (c *Cmd) Ps(arg CallOptions, reply *[]Session_info) error {
+func (c *Cmd) Ps(arg *CallOptions, reply *[]Session_info) error {
 	for _, session := range tty.session {
-		*reply = append(*reply, Session_info{
-			Name:       session.key.name,
-			Addr:       session.key.addr,
-			Command:    session.command,
-			RemoteAddr: session.remoteAddr,
-			ConnTime:   session.connTime,
-		})
+		info := Session_info{
+			Key:      session.key,
+			Method:   session.method,
+			Status:   session.status,
+			Command:  session.command,
+			ConnTime: session.connTime,
+			LinkNb:   session.linkNb,
+		}
+		if session.linkTo != nil {
+			info.PKey = session.linkTo.key
+			info.Command = session.linkTo.command
+		}
+		if session.context != nil {
+			info.RemoteAddr = session.context.request.RemoteAddr
+		}
+		*reply = append(*reply, info)
 	}
 	return nil
 }
 
-func (c *Cmd) Exec(arg CallOptions, name *string) error {
-	key := connKey{
-		name: arg.Opt.Name,
-		addr: arg.Opt.Addr,
-	}
-	if key.name == "" {
-		if err := keyGenerator(&key); err != nil {
+func (c *Cmd) Exec(arg *CallOptions, key *ConnKey) error {
+	key.Addr = arg.Opt.Addr
+	key.Name = arg.Opt.Name
+
+	if key.Name == "" {
+		if err := keyGenerator(key); err != nil {
 			return err
 		}
 	}
-	*name = key.name
 	sess := &session{
-		key:        key,
+		key:        *key,
+		linkNb:     1,
 		status:     CONN_S_WAITING,
+		method:     CONN_M_EXEC,
 		createTime: time.Now().Unix(),
 		options:    &arg.Opt,
 		command:    arg.Args,
 	}
-
 	return tty.newWaitingConn(sess)
 }
 
-func keyGenerator(key *connKey) error {
+func (c *Cmd) Attach(arg CallOptions, key *ConnKey) error {
+	key.Name = arg.Opt.Name
+	key.Addr = arg.Opt.Addr
+	skey := ConnKey{
+		Name: arg.Opt.SName,
+		Addr: arg.Opt.SAddr,
+	}
+
+	if s, ok := tty.session[skey]; ok {
+		if key.Name == "" {
+			if err := keyGenerator(key); err != nil {
+				return err
+			}
+		}
+
+		s.Lock()
+		defer s.Unlock()
+
+		if s.status != CONN_S_CONNECTED {
+			return fmt.Errorf("session{name:\"%s\", addr:\"%s\"} is not connected",
+				s.key.Name, s.key.Addr)
+		}
+
+		s.linkNb += 1
+		sess := &session{
+			key:        *key,
+			linkTo:     s,
+			linkNb:     1,
+			status:     CONN_S_WAITING,
+			method:     CONN_M_ATTACH,
+			createTime: time.Now().Unix(),
+			options:    &arg.Opt,
+			command:    arg.Args,
+		}
+		return tty.newWaitingConn(sess)
+	} else {
+		return fmt.Errorf("session{name:\"%s\", addr:\"%s\"} is not exist",
+			skey.Name, skey.Addr)
+	}
+}
+
+func keyGenerator(key *ConnKey) error {
 	for i := 0; i < 10; i++ {
-		key.name = namesgenerator.GetRandomName(i)
+		key.Name = namesgenerator.GetRandomName(i)
 		if _, exsit := tty.session[*key]; exsit {
 			continue
 		}

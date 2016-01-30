@@ -9,7 +9,50 @@
 
 GoTTY Fork from https://github.com/yudai/gotty.git. A simple command line tool that turns your CLI tools into web applications. 
 
+# Example
+---
+#### server deamon
+```shell
+$gotty deamon
+# or
+$sudo service gotty start
+```
+
+#### create a seesion
+
+Server side
+```shell
+#just allow 127.0.0.1 access
+$gotty exec -name abc -w -addr 127.0.0.1 /bin/bash
+#open access
+$gotty exec -name abc -addr 0.0.0.0 top
+```
+
+Client side
+```
+$gotty-client http://127.0.0.1:9000/?name=abc
+```
+
+#### attach a session
+
+Server side
+```shell
+$gotty attach -name bbb -sname abc -w
+```
+
+Client side
+```
+$gotty-client http://127.0.0.1:9000/?name=bbb
+```
+
+#### list session
+```shell
+$gotty ps -a
+```
+
+
 # Installation
+---
 
 ### Security Options
 

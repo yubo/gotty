@@ -13,7 +13,8 @@ func main() {
 
 	cmd := flags.CommandLine.Cmd
 	if cmd != nil && cmd.Action != nil {
-		cmd.Action(tty.CallOptions{Opt: tty.CmdOpt, Args: cmd.Flag.Args()})
+		opts := &tty.CallOptions{Opt: tty.CmdOpt, Args: cmd.Flag.Args()}
+		cmd.Action(opts)
 		return
 	} else {
 		flags.Usage()

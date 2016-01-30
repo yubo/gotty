@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 
@@ -18,12 +19,14 @@ import (
 )
 
 type clientContext struct {
-	session    *session
-	request    *http.Request
-	connection *websocket.Conn
-	command    *exec.Cmd
-	pty        *os.File
-	writeMutex *sync.Mutex
+	session     *session
+	request     *http.Request
+	connection  *webConn
+	connections *map[ConnKey]*webConn
+	command     *exec.Cmd
+	pty         *os.File
+	writeMutex  *sync.Mutex
+	connRx      chan *connRx
 }
 
 const (
@@ -52,9 +55,31 @@ type ContextVars struct {
 	RemoteAddr string
 }
 
+func (context *clientContext) goHandleClientJoin() error {
+	if err := context.sendInitialize(); err != nil {
+		glog.Errorln(err.Error())
+		return err
+	}
+	(*context.connections)[context.session.key] = context.connection
+	go func() {
+		rx := &connRx{key: context.session.key}
+
+		for {
+			rx.messageType, rx.p, rx.err = context.connection.conn.ReadMessage()
+			context.connRx <- rx
+			if rx.err != nil {
+				context.close(rx.key)
+				return
+			}
+		}
+	}()
+	return nil
+}
+
 func (context *clientContext) goHandleClient() {
 	exit := make(chan bool, 2)
 
+	(*context.connections)[context.session.key] = context.connection
 	go func() {
 		defer func() { exit <- true }()
 
@@ -68,7 +93,6 @@ func (context *clientContext) goHandleClient() {
 	}()
 
 	go func() {
-		defer tty.server.FinishRoutine()
 
 		<-exit
 		context.session.status = CONN_S_CLOSED
@@ -77,14 +101,59 @@ func (context *clientContext) goHandleClient() {
 		// Even if the PTY has been closed,
 		// Read(0 in processSend() keeps blocking and the process doen't exit
 		context.command.Process.Signal(syscall.Signal(tty.options.CloseSignal))
+		tty.server.FinishRoutine()
 
 		context.command.Wait()
-		context.connection.Close()
-		delete(tty.session, context.session.key)
+		for key, _ := range *context.connections {
+			context.close(key)
+		}
+
+		if context.session.linkNb != 0 {
+			glog.Errorf("connection closed: %s:%s, but linkNb(%d) is not zero",
+				context.session.key.Name, context.session.key.Addr,
+				context.session.linkNb)
+		}
+
 		glog.Infof("Connection closed: %s", context.request.RemoteAddr)
 	}()
+
+	go func() {
+		rx := &connRx{key: context.session.key}
+
+		for {
+			rx.messageType, rx.p, rx.err = context.connection.conn.ReadMessage()
+			context.connRx <- rx
+			if rx.err != nil {
+				context.close(rx.key)
+				return
+			}
+		}
+	}()
+
 }
 
+func (context *clientContext) close(key ConnKey) {
+	if conn, ok := (*context.connections)[key]; ok {
+		conn.conn.Close()
+		tty.session[key].status = CONN_S_CLOSED
+		delete(*context.connections, key)
+
+		if tty.session[key].linkTo != nil {
+			n := atomic.AddInt32(&tty.session[key].linkTo.linkNb, -1)
+			glog.Infof("linkNb:%d should be:%d", n,
+				len(*tty.session[key].linkTo.context.connections))
+			if n == 0 {
+				delete(tty.session, tty.session[key].linkTo.key)
+			}
+		}
+
+		n := atomic.AddInt32(&tty.session[key].linkNb, -1)
+		if tty.session[key].linkNb == 0 {
+			delete(tty.session, key)
+		}
+		glog.Infof("connection closed:%s, linkNb:%d", key, n)
+	}
+}
 func (context *clientContext) processSend() {
 	if err := context.sendInitialize(); err != nil {
 		glog.Errorln(err.Error())
@@ -100,17 +169,33 @@ func (context *clientContext) processSend() {
 			return
 		}
 		safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
-		if err = context.write(append([]byte{Output}, []byte(safeMessage)...)); err != nil {
-			glog.Errorln(err.Error())
-			return
+		if errs := context.write(append([]byte{Output},
+			[]byte(safeMessage)...)); len(errs) > 0 {
+			for _, e := range errs {
+				glog.Errorln(e.err.Error())
+				context.close(e.key)
+			}
+			if len(*context.connections) == 0 {
+				return
+			}
 		}
 	}
 }
 
-func (context *clientContext) write(data []byte) error {
-	context.writeMutex.Lock()
-	defer context.writeMutex.Unlock()
-	return context.connection.WriteMessage(websocket.TextMessage, data)
+func (wc *webConn) write(data []byte) error {
+	wc.Lock()
+	defer wc.Unlock()
+	return wc.conn.WriteMessage(websocket.TextMessage, data)
+}
+
+func (context *clientContext) write(data []byte) []connErr {
+	var errs []connErr
+	for key, wc := range *context.connections {
+		if err := wc.write(data); err != nil {
+			errs = append(errs, connErr{key: key, err: err})
+		}
+	}
+	return errs
 }
 
 func (context *clientContext) sendInitialize() error {
@@ -126,7 +211,8 @@ func (context *clientContext) sendInitialize() error {
 	if err := tty.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
 		return err
 	}
-	if err := context.write(append([]byte{SetWindowTitle}, titleBuffer.Bytes()...)); err != nil {
+	if err := context.connection.write(append([]byte{SetWindowTitle},
+		titleBuffer.Bytes()...)); err != nil {
 		return err
 	}
 
@@ -144,12 +230,14 @@ func (context *clientContext) sendInitialize() error {
 		return err
 	}
 
-	if err := context.write(append([]byte{SetPreferences}, prefs...)); err != nil {
+	if err := context.connection.write(append([]byte{SetPreferences},
+		prefs...)); err != nil {
 		return err
 	}
 	if tty.options.EnableReconnect {
 		reconnect, _ := json.Marshal(tty.options.ReconnectTime)
-		if err := context.write(append([]byte{SetReconnect}, reconnect...)); err != nil {
+		if err := context.connection.write(append([]byte{SetReconnect},
+			reconnect...)); err != nil {
 			return err
 		}
 	}
@@ -157,36 +245,52 @@ func (context *clientContext) sendInitialize() error {
 }
 
 func (context *clientContext) processReceive() {
+	var rx *connRx
+	var ok bool
+	var err error
 	for {
-		_, data, err := context.connection.ReadMessage()
-		if err != nil {
-			glog.Errorln(err.Error())
+		if rx, ok = <-context.connRx; !ok {
 			return
 		}
-		if len(data) == 0 {
+		if rx.err != nil {
+			glog.Errorln(rx.err.Error())
+			context.close(rx.key)
+			if len(*context.connections) == 0 {
+				return
+			} else {
+				continue
+			}
+		}
+
+		if len(rx.p) == 0 {
 			glog.Errorln("An error has occured")
 			return
 		}
 
-		switch data[0] {
+		switch rx.p[0] {
 		case Input:
 			if !context.session.options.PermitWrite {
 				break
 			}
 
-			_, err := context.pty.Write(data[1:])
+			_, err = context.pty.Write(rx.p[1:])
 			if err != nil {
 				return
 			}
 
 		case Ping:
-			if err := context.write([]byte{Pong}); err != nil {
-				glog.Errorln(err.Error())
-				return
+			if errs := context.write([]byte{Pong}); len(errs) > 0 {
+				for _, e := range errs {
+					glog.Errorln(e.err.Error())
+					context.close(e.key)
+				}
+				if len(*context.connections) == 0 {
+					return
+				}
 			}
 		case ResizeTerminal:
 			var args argResizeTerminal
-			err = json.Unmarshal(data[1:], &args)
+			err = json.Unmarshal(rx.p[1:], &args)
 			if err != nil {
 				glog.Errorln("Malformed remote command")
 				return
