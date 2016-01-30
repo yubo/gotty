@@ -31,7 +31,7 @@ func init() {
 	cmd.BoolVar(&CmdOpt.All, "a", DefaultCmdOptions.PermitShare,
 		"Permit joined clients to wirte to the TTY(BE CAREFULL)")
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
-	cmd.StringVar(&CmdOpt.Addr, "addr", "0.0.0.0", "allow ipv4 address")
+	cmd.StringVar(&CmdOpt.Addr, "addr", "127.0.0.0/8", "allow ipv4 address")
 
 	// ps
 	cmd = flags.NewCommand("ps", "List session", ps_handle, flag.ExitOnError)
@@ -45,14 +45,14 @@ func init() {
 	cmd.BoolVar(&CmdOpt.PermitWrite, "w", DefaultCmdOptions.PermitWrite,
 		"Permit clients to write to the TTY (BE CAREFUL)")
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set the new session name")
-	cmd.StringVar(&CmdOpt.Addr, "addr", "0.0.0.0", "allow ipv4 address")
+	cmd.StringVar(&CmdOpt.Addr, "addr", "127.0.0.0/8", "allow ipv4 address")
 	cmd.StringVar(&CmdOpt.SName, "sname", "", "attach to the session name")
-	cmd.StringVar(&CmdOpt.SAddr, "saddr", "0.0.0.0", "attach to the session addr")
+	cmd.StringVar(&CmdOpt.SAddr, "saddr", "127.0.0.0/8", "attach to the session addr")
 
 	// close
 	cmd = flags.NewCommand("close", "Close a pty/session", close_handle, flag.ExitOnError)
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
-	cmd.StringVar(&CmdOpt.Addr, "addr", "0.0.0.0", "allow ipv4 address")
+	cmd.StringVar(&CmdOpt.Addr, "addr", "127.0.0.0/8", "allow ipv4 address")
 	cmd.BoolVar(&CmdOpt.All, "a", false,
 		"Close all session use the same pty(default close just a seesion)")
 

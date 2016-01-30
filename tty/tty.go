@@ -294,7 +294,7 @@ func ws_clone(sess *session, r *http.Request,
 	}
 	sess.linkNb += 1
 	opt := *sess.options
-	if !(opt.PermitWrite && opt.PermitShare) {
+	if !(opt.PermitWrite && opt.PermitShare && opt.All) {
 		opt.PermitWrite = false
 	}
 	s := &session{
@@ -410,6 +410,9 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	if params := query.Query()["name"]; len(params) != 0 {
 		key.Name = params[0]
 	}
+	if params := query.Query()["addr"]; len(params) != 0 {
+		key.Addr = params[0]
+	}
 	//}
 
 	if cip, _, err = net.SplitHostPort(r.RemoteAddr); err != nil {
@@ -418,14 +421,15 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addrs := []string{cip, "0.0.0.0"}
-	for _, key.Addr = range addrs {
-		if session, ok = tty.session[key]; ok {
-			break
-		}
+	if session, ok = tty.session[key]; !ok {
+		glog.Infof("name:%s addr:%s is not exist\n", key.Name, key.Addr)
+		conn.Close()
+		return
 	}
-	if !ok {
-		glog.Infof("name:%s addr:%s is not exist\n", key.Name, cip)
+
+	if !ipFilter(cip, session.nets) {
+		glog.Infof("RemoteAddr:%s is not allowed to access name:%s addr:%s\n",
+			cip, key.Name, key.Addr)
 		conn.Close()
 		return
 	}

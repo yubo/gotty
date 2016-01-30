@@ -57,6 +57,7 @@ func (c *Cmd) Exec(arg *CallOptions, key *ConnKey) error {
 		createTime: time.Now().Unix(),
 		options:    &arg.Opt,
 		command:    arg.Args,
+		nets:       parseAddr(key.Addr),
 	}
 	return tty.newWaitingConn(sess)
 }

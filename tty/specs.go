@@ -2,6 +2,7 @@ package tty
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"text/template"
 
@@ -58,6 +59,7 @@ type session struct {
 	options    *CmdOptions
 	context    *clientContext
 	command    []string
+	nets       *[]*net.IPNet
 }
 
 type Options struct {

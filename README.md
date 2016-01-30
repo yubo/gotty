@@ -25,7 +25,9 @@ Server side
 #just allow 127.0.0.1 access
 $gotty exec -name abc -w -addr 127.0.0.1 /bin/bash
 #open access
-$gotty exec -name abc -addr 0.0.0.0 top
+$gotty exec -name abc -addr 0.0.0.0/0 top
+#allow 127.0.0.0/8, 172.16.0.0/16 to access the tty, but can't write(allow with -a)
+$gotty exec -w -share -name abc -addr=127.0.0.0/8,172.16.0.0/16 /bin/bash
 ```
 
 Client side
