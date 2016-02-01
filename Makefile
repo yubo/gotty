@@ -33,6 +33,8 @@ bindata/static/js/gotty.js: bindata/static/js resources/gotty.js
 
 tools:
 	go get github.com/tools/godep
+	go get github.com/mitchellh/gox
+	go get github.com/tcnksm/ghr
 
 deps:
 	godep restore
