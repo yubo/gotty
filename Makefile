@@ -35,6 +35,7 @@ tools:
 	go get github.com/tools/godep
 	go get github.com/mitchellh/gox
 	go get github.com/tcnksm/ghr
+	go get github.com/elazarl/go-bindata-assetfs/...
 
 deps:
 	godep restore
