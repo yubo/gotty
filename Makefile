@@ -33,27 +33,12 @@ bindata/static/js/gotty.js: bindata/static/js resources/gotty.js
 
 tools:
 	go get github.com/tools/godep
-	go get github.com/mitchellh/gox
-	go get github.com/tcnksm/ghr
 
 deps:
 	godep restore
 
 test:
 	if [ `go fmt ./... | wc -l` -gt 0 ]; then echo "go fmt error"; exit 1; fi
-
-cross_compile:
-	GOARM=5 gox -os="darwin linux freebsd netbsd openbsd" -arch="386 amd64 arm" -output "${OUTPUT_DIR}/pkg/{{.OS}}_{{.Arch}}/{{.Dir}}"
-
-targz:
-	mkdir -p ${OUTPUT_DIR}/dist
-	cd ${OUTPUT_DIR}/pkg/; for osarch in *; do (cd $$osarch; tar zcvf ../../dist/gotty_$$osarch.tar.gz ./*); done;
-
-shasums:
-	cd ${OUTPUT_DIR}/dist; shasum * > ./SHASUMS
-
-release:
-	ghr --delete --prerelease -u yubo -r gotty pre-release ${OUTPUT_DIR}/dist
 
 install:
 	install -m 0755 -d /var/log/gotty
