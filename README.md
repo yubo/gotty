@@ -18,6 +18,25 @@ $gotty deamon
 $sudo service gotty start
 ```
 
+#### config
+```shell
+### /etc/gotty/gotty.conf
+// Listen at port 9000 by default
+port = "9000"
+
+// Enable TSL/SSL by default
+//enable_tls = true
+
+// hterm preferences
+// Smaller font and a little bit bluer background color
+
+preferences {
+    font_size = 14
+    font_family = "Consolas, 'Liberation Mono', Menlo, Courier, monospace"
+    background_color = "rgb(16, 16, 32)"
+}
+```
+
 #### create a seesion
 
 Server side
@@ -31,7 +50,7 @@ $gotty exec -w -share -name abc -addr=127.0.0.0/8,172.16.0.0/16 /bin/bash
 ```
 
 Client side
-```
+```shell
 $gotty-client http://127.0.0.1:9000/?name=abc
 ```
 
@@ -43,8 +62,22 @@ $gotty attach -name bbb -sname abc -w
 ```
 
 Client side
+```shell
+#Open the URL on Web browser
+http://127.0.0.1:9000/?name=bbb&addr=0.0.0.0/0
+# or
+$gotty-client http://127.0.0.1:9000/?name=bbb&addr=0.0.0.0/0
 ```
-$gotty-client http://127.0.0.1:9000/?name=bbb
+
+#### record/replay session
+```shell
+# add -rec to record session
+$gotty exec -name abc -w -rec -addr 127.0.0.0/8 /bin/bash
+exec successful, name:"abc" addr:"127.0.0.0/8" recid:"535086102"
+# replay
+$gotty play -name=abc -speed=2.0 -addr=127.0.0.0/8 -id=535086102
+play successful, name:"abc" addr:"127.0.0.0/8" recid:"535086102"
+# Open http://127.0.0.1:9000/?name=abc&addr=127.0.0.0/8
 ```
 
 #### list session
