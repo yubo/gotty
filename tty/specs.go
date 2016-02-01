@@ -26,20 +26,6 @@ type clientContext struct {
 	connRx      chan *connRx
 }
 
-const (
-	Input          = '0'
-	Ping           = '1'
-	ResizeTerminal = '2'
-)
-
-const (
-	Output         = '0'
-	Pong           = '1'
-	SetWindowTitle = '2'
-	SetPreferences = '3'
-	SetReconnect   = '4'
-)
-
 type argResizeTerminal struct {
 	Columns float64
 	Rows    float64
@@ -143,6 +129,7 @@ type CmdOptions struct {
 	PermitShareWrite bool
 	Rec              bool
 	Repeat           bool
+	MaxWait          int64
 	Speed            float64
 	Name             string
 	Addr             string
@@ -214,5 +201,6 @@ var (
 		Repeat:           true,
 		Speed:            1.0,
 		Addr:             "127.0.0.0/8",
+		MaxWait:          0,
 	}
 )

@@ -2,6 +2,7 @@ package tty
 
 import (
 	"net"
+	"os"
 	"strings"
 
 	"github.com/golang/glog"
@@ -28,4 +29,15 @@ func ipFilter(addr string, nets *[]*net.IPNet) bool {
 		}
 	}
 	return false
+}
+
+func environment() map[string]string {
+	env := map[string]string{}
+
+	for _, keyval := range os.Environ() {
+		pair := strings.SplitN(keyval, "=", 2)
+		env[pair[0]] = pair[1]
+	}
+
+	return env
 }

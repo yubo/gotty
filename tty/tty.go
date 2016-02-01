@@ -36,6 +36,7 @@ var (
 	tty *Tty
 	//session   *Session
 	GlobalOpt Options = DefaultOptions
+	env       map[string]string
 )
 
 func Parse() {
@@ -93,6 +94,9 @@ func clean_worker(options *Options) {
 
 func tty_init(options *Options, command []string) error {
 	// called after Parse()
+	//
+
+	env = environment()
 
 	titleTemplate, err := template.New("title").Parse(GlobalOpt.TitleFormat)
 	if err != nil {

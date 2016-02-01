@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/yubo/gotool/flags"
+	"github.com/yubo/gotty/rec"
 )
 
 func init() {
@@ -84,6 +85,17 @@ func init() {
 	cmd.BoolVar(&CmdOpt.PermitShare, "share",
 		DefaultCmdOptions.PermitShare,
 		"Allow muilt-clients to join the TTY (addr should be network or muilt-addr)")
+	cmd.Int64Var(&CmdOpt.MaxWait, "max-wait",
+		DefaultCmdOptions.MaxWait,
+		"Reduce recorded terminal inactivity to max <sec> second")
+
+	cmd = flags.NewCommand("convert",
+		"convert seesion id to asciicast format(json)", convert_handle, flag.ExitOnError)
+	cmd.StringVar(&CmdOpt.SName, "i", "", "convert tty, input filename or seesion id")
+	cmd.StringVar(&CmdOpt.Name, "o", "out.json", "convert tty, output filename")
+	cmd.Int64Var(&CmdOpt.MaxWait, "max-wait",
+		DefaultCmdOptions.MaxWait,
+		"Reduce recorded terminal inactivity to max <sec> second")
 
 	// version
 	cmd = flags.NewCommand("version",
@@ -181,6 +193,26 @@ func close_handle(arg interface{}) {
 	} else {
 		fmt.Fprintf(os.Stdout, "close successful\n")
 	}
+}
+
+func convert_handle(arg interface{}) {
+	opt := arg.(*CallOptions)
+	filename := expandHomeDir(opt.Opt.SName)
+
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		filename = expandHomeDir(GlobalOpt.RecFileDir) +
+			"/" + opt.Opt.SName
+		_, err := os.Stat(filename)
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "file/RecID(%s) is not exsit\n",
+				opt.Opt.SName)
+			os.Exit(1)
+		}
+	}
+	rec.Convert(filename, opt.Opt.Name, opt.Opt.MaxWait)
+
+	fmt.Fprintf(os.Stdout, "%s\n", Version)
 }
 
 func version_handle(arg interface{}) {

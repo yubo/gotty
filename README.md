@@ -85,6 +85,11 @@ play successful, name:"abc" addr:"127.0.0.0/8" recid:"535086102"
 $gotty ps -a
 ```
 
+#### convert asciinema format
+```shell
+$gotty convert -i 535086102 -o out.json
+```
+
 #### close a pty/session
 ```shell
 #Close all session use the same pty(name:abc,addr:0.0.0.0)

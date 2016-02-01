@@ -2,6 +2,7 @@ package rec
 
 import (
 	"encoding/gob"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"os"
@@ -22,6 +23,7 @@ const (
 	Input          = '0'
 	Ping           = '1'
 	ResizeTerminal = '2'
+	SysEnv         = '3'
 )
 
 const (
@@ -32,20 +34,37 @@ const (
 	SetReconnect   = '4'
 )
 
-type argResizeTerminal struct {
+type ArgEnvTerminal struct {
+	Term    string `json:"TERM"`
+	Shell   string `json:"SHELL"`
+	Command string `json:"COMMAND"`
+}
+
+type ArgResizeTerminal struct {
 	Columns float64
 	Rows    float64
 }
 
-func NewRecorder(dir string) (*Recorder, error) {
+func NewRecorder(term, shell, command, dir string) (*Recorder, error) {
 	var err error
-	rec := &Recorder{}
-	if rec.f, err = ioutil.TempFile(dir, ""); err != nil {
+	var buf []byte
+
+	r := &Recorder{}
+	if r.f, err = ioutil.TempFile(dir, ""); err != nil {
 		return nil, err
 	}
-	rec.enc = gob.NewEncoder(rec.f)
-	rec.FileName = rec.f.Name()
-	return rec, nil
+	r.enc = gob.NewEncoder(r.f)
+	r.FileName = r.f.Name()
+
+	buf, err = json.Marshal(ArgEnvTerminal{Term: term,
+		Shell: shell, Command: command})
+	if err != nil {
+		return nil, err
+	}
+
+	r.Write(append([]byte{SysEnv}, buf...))
+
+	return r, nil
 }
 
 func (r *Recorder) Read(d []byte) (n int, err error) {

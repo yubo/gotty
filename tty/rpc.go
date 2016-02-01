@@ -56,7 +56,8 @@ func (c *Cmd) Exec(arg *CallOptions, info *Session_info) error {
 		}
 	}
 	if arg.Opt.Rec {
-		if recorder, err = rec.NewRecorder(expandHomeDir(tty.options.RecFileDir)); err != nil {
+		if recorder, err = rec.NewRecorder(env["TERM"], env["SHELL"],
+			arg.Args[0], expandHomeDir(tty.options.RecFileDir)); err != nil {
 			return err
 		}
 	}
@@ -91,7 +92,8 @@ func (c *Cmd) Play(arg *CallOptions, info *Session_info) error {
 	}
 
 	if player, err = rec.NewPlayer(expandHomeDir(tty.options.RecFileDir)+
-		"/"+info.RecId, arg.Opt.Speed, arg.Opt.Repeat); err != nil {
+		"/"+info.RecId, arg.Opt.Speed, arg.Opt.Repeat,
+		arg.Opt.MaxWait); err != nil {
 		glog.Info(err.Error())
 		return err
 	}

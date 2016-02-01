@@ -13,6 +13,7 @@ import (
 	"github.com/fatih/structs"
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
+	"github.com/yubo/gotty/rec"
 )
 
 func (context *clientContext) goHandleClientJoin() error {
@@ -145,9 +146,9 @@ func (context *clientContext) processSend() {
 			glog.Errorf("Command exited for: %s", context.request.RemoteAddr)
 			return
 		}
-		context.record(append([]byte{Output}, buf[:size]...))
+		context.record(append([]byte{rec.Output}, buf[:size]...))
 		safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
-		if errs := context.write(append([]byte{Output},
+		if errs := context.write(append([]byte{rec.Output},
 			[]byte(safeMessage)...)); len(errs) > 0 {
 			for _, e := range errs {
 				glog.Errorln(e.err.Error())
@@ -189,7 +190,7 @@ func (context *clientContext) sendInitialize() error {
 	if err := tty.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
 		return err
 	}
-	if err := context.connection.write(append([]byte{SetWindowTitle},
+	if err := context.connection.write(append([]byte{rec.SetWindowTitle},
 		titleBuffer.Bytes()...)); err != nil {
 		return err
 	}
@@ -208,13 +209,13 @@ func (context *clientContext) sendInitialize() error {
 		return err
 	}
 
-	if err := context.connection.write(append([]byte{SetPreferences},
+	if err := context.connection.write(append([]byte{rec.SetPreferences},
 		prefs...)); err != nil {
 		return err
 	}
 	if tty.options.EnableReconnect {
 		reconnect, _ := json.Marshal(tty.options.ReconnectTime)
-		if err := context.connection.write(append([]byte{SetReconnect},
+		if err := context.connection.write(append([]byte{rec.SetReconnect},
 			reconnect...)); err != nil {
 			return err
 		}
@@ -246,7 +247,7 @@ func (context *clientContext) processReceive() {
 		}
 
 		switch rx.p[0] {
-		case Input:
+		case rec.Input:
 			if !tty.session[rx.key].options.PermitWrite {
 				break
 			}
@@ -256,8 +257,8 @@ func (context *clientContext) processReceive() {
 				return
 			}
 
-		case Ping:
-			if errs := context.write([]byte{Pong}); len(errs) > 0 {
+		case rec.Ping:
+			if errs := context.write([]byte{rec.Pong}); len(errs) > 0 {
 				for _, e := range errs {
 					glog.Errorln(e.err.Error())
 					context.close(e.key)
@@ -266,7 +267,7 @@ func (context *clientContext) processReceive() {
 					return
 				}
 			}
-		case ResizeTerminal:
+		case rec.ResizeTerminal:
 			var args argResizeTerminal
 			err = json.Unmarshal(rx.p[1:], &args)
 			if err != nil {

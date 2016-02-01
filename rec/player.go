@@ -11,27 +11,31 @@ import (
 )
 
 type Player struct {
-	FileName   string
-	f          *os.File
-	dec        *gob.Decoder
-	d          RecData
-	speed      float64
-	repeat     bool
-	init       bool
-	file_start int64
-	start      int64
-	window     struct {
+	FileName  string
+	f         *os.File
+	dec       *gob.Decoder
+	d         RecData
+	speed     float64
+	repeat    bool
+	init      bool
+	fileStart int64
+	start     int64
+	offset    int64
+	maxWait   int64
+	window    struct {
 		row uint16
 		col uint16
-		x   uint16
-		y   uint16
 	}
 }
 
-func NewPlayer(filename string, speed float64, repeat bool) (*Player, error) {
+func NewPlayer(filename string, speed float64, repeat bool, wait int64) (*Player, error) {
 	var err error
 
-	p := &Player{FileName: filename, speed: speed, repeat: repeat}
+	p := &Player{FileName: filename,
+		speed:   speed,
+		repeat:  repeat,
+		maxWait: wait * 1000000000,
+	}
 	if p.f, err = os.OpenFile(filename, os.O_RDONLY, 0); err != nil {
 		return nil, err
 	}
@@ -40,44 +44,57 @@ func NewPlayer(filename string, speed float64, repeat bool) (*Player, error) {
 }
 
 func (p *Player) Read(d []byte) (n int, err error) {
-retry:
-	if err = p.dec.Decode(&p.d); err != nil {
-		if p.init && p.repeat && err == io.EOF {
-			p.start = Nanotime()
-			p.f.Seek(0, 0)
-			p.dec = gob.NewDecoder(p.f)
-			glog.Infof("read %s EOF, replay again", p.FileName)
-			goto retry
-		} else {
-			p.Close()
-			return 0, err
+	for {
+		if err = p.dec.Decode(&p.d); err != nil {
+			if p.init && p.repeat && err == io.EOF {
+				p.start = Nanotime()
+				p.f.Seek(0, 0)
+				p.dec = gob.NewDecoder(p.f)
+				glog.Infof("read %s EOF, replay again", p.FileName)
+				continue
+			} else {
+				p.Close()
+				return 0, err
+			}
+		}
+
+		switch p.d.Data[0] {
+		case ResizeTerminal:
+			var args ArgResizeTerminal
+			err = json.Unmarshal(p.d.Data[1:], &args)
+			if err != nil {
+				glog.Errorln("Malformed remote command")
+				continue
+			}
+			p.window.row = uint16(args.Rows)
+			p.window.col = uint16(args.Columns)
+			continue
+		case Output:
+			if !p.init {
+				p.fileStart = p.d.Time
+				p.start = Nanotime()
+				p.init = true
+			}
+			delta := (p.d.Time - p.fileStart) - p.offset -
+				int64(float64(Nanotime()-p.start)*p.speed)
+			if p.maxWait > 0 && delta > p.maxWait {
+				p.offset += delta - p.maxWait
+				time.Sleep(time.Duration(p.maxWait) * time.Nanosecond)
+			} else if delta > 0 {
+				time.Sleep(time.Duration(delta) * time.Nanosecond)
+			}
+			//glog.Infof("time:%d %d len:%d", Nanotime(), p.d.Time, n)
+
+			n = copy(d, p.d.Data[1:])
+			return
+		case SysEnv:
+			continue
+		default:
+			glog.Errorf("unknow type(%d) context(%s)",
+				p.d.Data[0], string(p.d.Data[1:]))
+			continue
 		}
 	}
-
-	if p.d.Data[0] == ResizeTerminal {
-		var args argResizeTerminal
-		err = json.Unmarshal(p.d.Data[1:], &args)
-		if err != nil {
-			glog.Errorln("Malformed remote command")
-			goto retry
-		}
-		p.window.row = uint16(args.Rows)
-		p.window.col = uint16(args.Columns)
-		goto retry
-	}
-
-	if !p.init {
-		p.file_start = p.d.Time
-		p.start = Nanotime()
-		p.init = true
-	}
-
-	offset := (p.d.Time - p.file_start) - int64(float64(Nanotime()-p.start)*p.speed)
-	if offset > 0 {
-		time.Sleep(time.Duration(offset) * time.Nanosecond)
-	}
-	n = copy(d, p.d.Data[1:])
-	return
 }
 
 func (p *Player) Write(d []byte) (n int, err error) {
