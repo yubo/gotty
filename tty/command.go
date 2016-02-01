@@ -24,37 +24,66 @@ func init() {
 	// exec
 	cmd = flags.NewCommand("exec", "Run a command in a new pty",
 		exec_handle, flag.ExitOnError)
-	cmd.BoolVar(&CmdOpt.PermitWrite, "w", DefaultCmdOptions.PermitWrite,
+	cmd.BoolVar(&CmdOpt.PermitWrite, "w",
+		DefaultCmdOptions.PermitWrite,
 		"Permit clients to write to the TTY (BE CAREFUL)")
-	cmd.BoolVar(&CmdOpt.PermitShare, "share", DefaultCmdOptions.PermitShare,
-		"Permit clients to join the TTY (BE CAREFULL with -a)")
-	cmd.BoolVar(&CmdOpt.All, "a", DefaultCmdOptions.PermitShare,
-		"Permit joined clients to wirte to the TTY(BE CAREFULL)")
+	cmd.BoolVar(&CmdOpt.PermitShare, "share",
+		DefaultCmdOptions.PermitShare,
+		"Allow muilt-clients to join the TTY (addr should be network or muilt-addr)")
+	cmd.BoolVar(&CmdOpt.PermitShareWrite, "share-write",
+		DefaultCmdOptions.PermitShareWrite,
+		"Permit joined clients to wirte to the TTY if this TTY writable(BE CAREFULL)")
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
-	cmd.StringVar(&CmdOpt.Addr, "addr", "127.0.0.0/8", "allow ipv4 address")
+	cmd.StringVar(&CmdOpt.Addr, "addr", DefaultCmdOptions.Addr,
+		"allow access nets, e.g. 127.0.0.1,192.168.0.0/24")
+	cmd.BoolVar(&CmdOpt.Rec, "rec",
+		DefaultCmdOptions.Rec, "record tty and save")
 
 	// ps
-	cmd = flags.NewCommand("ps", "List session", ps_handle, flag.ExitOnError)
-	cmd.BoolVar(&CmdOpt.All, "a", false,
+	cmd = flags.NewCommand("ps", "List session",
+		ps_handle, flag.ExitOnError)
+	cmd.BoolVar(&CmdOpt.All, "a", DefaultCmdOptions.All,
 		"Show all session(default show just "+
 			CONN_S_CONNECTED+"/"+CONN_S_WAITING+")")
 
 	// attach
 	cmd = flags.NewCommand("attach", "Attach to a seesion",
 		attach_handle, flag.ExitOnError)
-	cmd.BoolVar(&CmdOpt.PermitWrite, "w", DefaultCmdOptions.PermitWrite,
+	cmd.BoolVar(&CmdOpt.PermitWrite, "w",
+		DefaultCmdOptions.PermitWrite,
 		"Permit clients to write to the TTY (BE CAREFUL)")
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set the new session name")
-	cmd.StringVar(&CmdOpt.Addr, "addr", "127.0.0.0/8", "allow ipv4 address")
+	cmd.StringVar(&CmdOpt.Addr, "addr",
+		DefaultCmdOptions.Addr, "allow ipv4 address")
 	cmd.StringVar(&CmdOpt.SName, "sname", "", "attach to the session name")
-	cmd.StringVar(&CmdOpt.SAddr, "saddr", "127.0.0.0/8", "attach to the session addr")
+	cmd.StringVar(&CmdOpt.SAddr, "saddr",
+		DefaultCmdOptions.Addr, "attach to the session addr")
 
 	// close
-	cmd = flags.NewCommand("close", "Close a pty/session", close_handle, flag.ExitOnError)
+	cmd = flags.NewCommand("close", "Close a pty/session",
+		close_handle, flag.ExitOnError)
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
-	cmd.StringVar(&CmdOpt.Addr, "addr", "127.0.0.0/8", "allow ipv4 address")
+	cmd.StringVar(&CmdOpt.Addr, "addr", DefaultCmdOptions.Addr,
+		"allow access nets, e.g. 127.0.0.1,192.168.0.0/24")
 	cmd.BoolVar(&CmdOpt.All, "a", false,
 		"Close all session use the same pty(default close just a seesion)")
+
+	// play
+	cmd = flags.NewCommand("play",
+		"replay recorded file in a webtty",
+		play_handle, flag.ExitOnError)
+	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
+	cmd.StringVar(&CmdOpt.Addr, "addr",
+		DefaultCmdOptions.Addr,
+		"allow access nets, e.g. 127.0.0.1,192.168.0.0/24")
+	cmd.StringVar(&CmdOpt.RecId, "id", "", "replay tty id")
+	cmd.Float64Var(&CmdOpt.Speed, "speed",
+		DefaultCmdOptions.Speed, "replay speed")
+	cmd.BoolVar(&CmdOpt.Repeat, "repeat",
+		DefaultCmdOptions.Repeat, "replay repeat")
+	cmd.BoolVar(&CmdOpt.PermitShare, "share",
+		DefaultCmdOptions.PermitShare,
+		"Allow muilt-clients to join the TTY (addr should be network or muilt-addr)")
 
 	// version
 	cmd = flags.NewCommand("version",
@@ -80,15 +109,31 @@ func daemon_handle(arg interface{}) {
 	}
 }
 
-func exec_handle(arg interface{}) {
-	var key ConnKey
+func play_handle(arg interface{}) {
+	var info Session_info
 	opt := arg.(*CallOptions)
-	if err := Call("Cmd.Exec", opt, &key); err != nil {
+	if err := Call("Cmd.Play", opt, &info); err != nil {
+		fmt.Fprintf(os.Stderr, "play failed: %v \n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stdout, "play successful, name:\"%s\" addr:\"%s\" recid:\"%s\"\n",
+		info.Key.Name, info.Key.Addr, info.RecId)
+}
+
+func exec_handle(arg interface{}) {
+	var info Session_info
+	opt := arg.(*CallOptions)
+	if err := Call("Cmd.Exec", opt, &info); err != nil {
 		fmt.Fprintf(os.Stderr, "exec %v \n", err)
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stdout, "exec successful, name:\"%s\" addr:\"%s\"\n",
-		key.Name, key.Addr)
+	if opt.Opt.Rec {
+		fmt.Fprintf(os.Stdout, "exec successful, name:\"%s\" addr:\"%s\" recid:\"%s\"\n",
+			info.Key.Name, info.Key.Addr, info.RecId)
+	} else {
+		fmt.Fprintf(os.Stdout, "exec successful, name:\"%s\" addr:\"%s\"\n",
+			info.Key.Name, info.Key.Addr)
+	}
 }
 
 func ps_handle(arg interface{}) {

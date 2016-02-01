@@ -4,11 +4,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"net/http"
 	"os"
-	"os/exec"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"unsafe"
@@ -17,43 +14,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 )
-
-type clientContext struct {
-	session     *session
-	request     *http.Request
-	connection  *webConn
-	connections *map[ConnKey]*webConn
-	command     *exec.Cmd
-	pty         *os.File
-	writeMutex  *sync.Mutex
-	connRx      chan *connRx
-}
-
-const (
-	Input          = '0'
-	Ping           = '1'
-	ResizeTerminal = '2'
-)
-
-const (
-	Output         = '0'
-	Pong           = '1'
-	SetWindowTitle = '2'
-	SetPreferences = '3'
-	SetReconnect   = '4'
-)
-
-type argResizeTerminal struct {
-	Columns float64
-	Rows    float64
-}
-
-type ContextVars struct {
-	Command    string
-	Pid        int
-	Hostname   string
-	RemoteAddr string
-}
 
 func (context *clientContext) goHandleClientJoin() error {
 	if err := context.sendInitialize(); err != nil {
@@ -79,6 +39,7 @@ func (context *clientContext) goHandleClientJoin() error {
 func (context *clientContext) goHandleClient() {
 	exit := make(chan bool, 2)
 
+	tty.server.StartRoutine()
 	(*context.connections)[context.session.key] = context.connection
 	go func() {
 		defer func() { exit <- true }()
@@ -97,10 +58,15 @@ func (context *clientContext) goHandleClient() {
 		<-exit
 		context.session.status = CONN_S_CLOSED
 		context.pty.Close()
+		if context.session.recorder != nil {
+			context.session.recorder.Close()
+		}
 
 		// Even if the PTY has been closed,
 		// Read(0 in processSend() keeps blocking and the process doen't exit
-		context.command.Process.Signal(syscall.Signal(tty.options.CloseSignal))
+		if context.session.method != CONN_M_PLAY {
+			context.command.Process.Signal(syscall.Signal(tty.options.CloseSignal))
+		}
 		tty.server.FinishRoutine()
 
 		context.command.Wait()
@@ -154,6 +120,17 @@ func (context *clientContext) close(key ConnKey) {
 		glog.Infof("connection closed:%s, linkNb:%d", key, n)
 	}
 }
+
+func (context *clientContext) record(data []byte) {
+	if r := context.session.recorder; r != nil {
+		if _, err := r.Write(data); err != nil {
+			glog.Errorf(err.Error())
+			r.Close()
+			r = nil
+		}
+	}
+}
+
 func (context *clientContext) processSend() {
 	if err := context.sendInitialize(); err != nil {
 		glog.Errorln(err.Error())
@@ -168,6 +145,7 @@ func (context *clientContext) processSend() {
 			glog.Errorf("Command exited for: %s", context.request.RemoteAddr)
 			return
 		}
+		context.record(append([]byte{Output}, buf[:size]...))
 		safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
 		if errs := context.write(append([]byte{Output},
 			[]byte(safeMessage)...)); len(errs) > 0 {
@@ -309,10 +287,11 @@ func (context *clientContext) processReceive() {
 			}
 			syscall.Syscall(
 				syscall.SYS_IOCTL,
-				context.pty.Fd(),
+				context.fd,
 				syscall.TIOCSWINSZ,
 				uintptr(unsafe.Pointer(&window)),
 			)
+			context.record(rx.p)
 
 		default:
 			glog.Errorln("Unknown message type")

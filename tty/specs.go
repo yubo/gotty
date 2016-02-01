@@ -2,14 +2,55 @@ package tty
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"os/exec"
 	"sync"
 	"text/template"
 
 	"github.com/braintree/manners"
 	"github.com/gorilla/websocket"
+	"github.com/yubo/gotty/rec"
 )
 
+type clientContext struct {
+	session     *session
+	request     *http.Request
+	connection  *webConn
+	connections *map[ConnKey]*webConn
+	command     *exec.Cmd
+	pty         io.ReadWriteCloser
+	fd          uintptr
+	writeMutex  *sync.Mutex
+	connRx      chan *connRx
+}
+
+const (
+	Input          = '0'
+	Ping           = '1'
+	ResizeTerminal = '2'
+)
+
+const (
+	Output         = '0'
+	Pong           = '1'
+	SetWindowTitle = '2'
+	SetPreferences = '3'
+	SetReconnect   = '4'
+)
+
+type argResizeTerminal struct {
+	Columns float64
+	Rows    float64
+}
+
+type ContextVars struct {
+	Command    string
+	Pid        int
+	Hostname   string
+	RemoteAddr string
+}
 type InitMessage struct {
 	Arguments string `json:"Arguments,omitempty"`
 	AuthToken string `json:"AuthToken,omitempty"`
@@ -45,6 +86,7 @@ type Session_info struct {
 	RemoteAddr string
 	ConnTime   int64
 	LinkNb     int32
+	RecId      string
 }
 
 type session struct {
@@ -60,6 +102,8 @@ type session struct {
 	context    *clientContext
 	command    []string
 	nets       *[]*net.IPNet
+	recorder   *rec.Recorder
+	player     *rec.Player
 }
 
 type Options struct {
@@ -84,6 +128,7 @@ type Options struct {
 	Preferences         HtermPrefernces        `hcl:"preferences"`
 	RawPreferences      map[string]interface{} `hcl:"preferences"`
 	WaitingConnTime     int                    `hcl:"waiting_conn_time"`
+	RecFileDir          string                 `hcl:"rec_file_dir"`
 }
 
 type CallOptions struct {
@@ -92,13 +137,18 @@ type CallOptions struct {
 }
 
 type CmdOptions struct {
-	Name        string
-	Addr        string
-	SName       string
-	SAddr       string
-	All         bool
-	PermitWrite bool
-	PermitShare bool
+	All              bool
+	PermitWrite      bool
+	PermitShare      bool
+	PermitShareWrite bool
+	Rec              bool
+	Repeat           bool
+	Speed            float64
+	Name             string
+	Addr             string
+	SName            string
+	SAddr            string
+	RecId            string
 }
 
 type connRx struct {
@@ -128,6 +178,8 @@ const (
 	CONN_M_EXEC      = "exec"
 	CONN_M_SHARE     = "share"
 	CONN_M_ATTACH    = "attach"
+	CONN_M_PLAY      = "play"
+	NULL_FILE        = "/dev/null"
 )
 
 var (
@@ -151,10 +203,16 @@ var (
 		CloseSignal:         1, // syscall.SIGHUP
 		Preferences:         HtermPrefernces{},
 		WaitingConnTime:     10,
+		RecFileDir:          "/var/lib/gotty",
 	}
 	DefaultCmdOptions = CmdOptions{
-		Name:        "",
-		PermitWrite: false,
-		PermitShare: false,
+		All:              false,
+		PermitWrite:      false,
+		PermitShare:      false,
+		PermitShareWrite: false,
+		Rec:              false,
+		Repeat:           true,
+		Speed:            1.0,
+		Addr:             "127.0.0.0/8",
 	}
 )

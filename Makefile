@@ -1,6 +1,6 @@
 OUTPUT_DIR = ./builds
 
-gotty: tty/resource.go main.go tty/*.go
+gotty: tty/resource.go main.go tty/*.go rec/*.go
 	go build
 
 resource:  tty/resource.go

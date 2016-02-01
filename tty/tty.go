@@ -51,6 +51,46 @@ func Parse() {
 
 }
 
+func clean(options *Options) {
+	now := time.Now().Unix()
+	e := tty.waitingConn.list.Front()
+	for e != nil {
+		if e.Value.(*session).createTime+
+			int64(options.WaitingConnTime) > now {
+			break
+		}
+		n := e.Next()
+		sess := tty.waitingConn.Remove(e).(*session)
+
+		if sess.status == CONN_S_WAITING {
+			sess.Lock()
+			glog.Infof("name[%s] addr[%s] waiting conntion timeout\n",
+				sess.key.Name, sess.key.Addr)
+			//remove from tty.session
+			sess.status = CONN_S_CLOSED
+			delete(tty.session, sess.key)
+			if sess.options.Rec && sess.recorder != nil {
+				name := sess.recorder.FileName
+				sess.recorder.Close()
+				os.Remove(name)
+				sess.recorder = nil
+			}
+			sess.Unlock()
+		}
+		e = n
+	}
+}
+
+func clean_worker(options *Options) {
+	t := time.NewTicker(time.Second).C
+	for {
+		select {
+		case <-t:
+			clean(options)
+		}
+	}
+}
+
 func tty_init(options *Options, command []string) error {
 	// called after Parse()
 
@@ -71,49 +111,8 @@ func tty_init(options *Options, command []string) error {
 		waitingConn:   &Slist{list: list.New()},
 	}
 
-	/*
-		session = &Session{
-			tty:     tty,
-			command: command,
-		}
-	*/
-
 	// waiting conn clean routine
-	go func() {
-		var n, e *list.Element
-		var sess *session
-		var now int64
-		t := time.NewTicker(time.Second).C
-		for {
-			select {
-			case <-t:
-				now = time.Now().Unix()
-				e = tty.waitingConn.list.Front()
-				for e != nil {
-					if e.Value.(*session).createTime+
-						int64(options.WaitingConnTime) > now {
-						break
-					}
-					n = e.Next()
-					sess = tty.waitingConn.Remove(e).(*session)
-
-					if sess.status == CONN_S_WAITING {
-						sess.Lock()
-						glog.Infof("name[%s] addr[%s] waiting conntion timeout\n",
-							sess.key.Name, sess.key.Addr)
-						//remove from tty.session
-						sess.status = CONN_S_CLOSED
-						delete(tty.session, sess.key)
-						sess.Unlock()
-					}
-
-					e = n
-				}
-
-			}
-		}
-	}()
-
+	go clean_worker(options)
 	return rpc_init()
 }
 
@@ -294,7 +293,7 @@ func ws_clone(sess *session, r *http.Request,
 	}
 	sess.linkNb += 1
 	opt := *sess.options
-	if !(opt.PermitWrite && opt.PermitShare && opt.All) {
+	if !(opt.PermitWrite && opt.PermitShare && opt.PermitShareWrite) {
 		opt.PermitWrite = false
 	}
 	s := &session{
@@ -323,38 +322,41 @@ func ws_clone(sess *session, r *http.Request,
 
 func ws_connect(session *session, r *http.Request,
 	query *url.URL, conn *websocket.Conn) {
-	argv := session.command[1:]
-	if params := query.Query()["arg"]; len(params) != 0 {
-		argv = append(argv, params...)
-	}
 
-	cmd := exec.Command(session.command[0], argv...)
-	ptyIo, err := pty.Start(cmd)
-	if err != nil {
-		glog.Errorln("Failed to execute command", err)
-		delete(tty.session, session.key)
-		conn.Close()
-		return
-	}
-	tty.server.StartRoutine()
 	session.connTime = time.Now().Unix()
 	session.status = CONN_S_CONNECTED
-
-	glog.Infof("Command is running for client %s with PID %d (args=%q)",
-		r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
-
+	session.context.session = session
+	session.context.request = r
 	conns := make(map[ConnKey]*webConn)
+	session.context.connections = &conns
+	session.context.connection = &webConn{conn: conn}
+	session.context.connRx = make(chan *connRx)
 
-	session.context = &clientContext{
-		session:     session,
-		request:     r,
-		connection:  &webConn{conn: conn},
-		connections: &conns,
-		command:     cmd,
-		pty:         ptyIo,
-		connRx:      make(chan *connRx),
+	if session.method == CONN_M_EXEC {
+		argv := session.command[1:]
+		if params := query.Query()["arg"]; len(params) != 0 {
+			argv = append(argv, params...)
+		}
+		cmd := exec.Command(session.command[0], argv...)
+		ptyIo, err := pty.Start(cmd)
+		if err != nil {
+			glog.Errorln("Failed to execute command", err)
+			delete(tty.session, session.key)
+			conn.Close()
+			return
+		}
+		session.context.pty = ptyIo
+		session.context.fd = ptyIo.Fd()
+		session.context.command = cmd
+		glog.Infof("Command is running for client %s with PID %d (args=%q)",
+			r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
+	} else if session.method == CONN_M_PLAY {
+		session.context.pty = session.player
+		session.context.command = &exec.Cmd{Process: &os.Process{}}
+		//player := tty.player
 	}
 	session.context.goHandleClient()
+
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
@@ -421,6 +423,10 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if key.Addr == "" {
+		key.Addr = cip
+	}
+
 	if session, ok = tty.session[key]; !ok {
 		glog.Infof("name:%s addr:%s is not exist\n", key.Name, key.Addr)
 		conn.Close()
@@ -437,7 +443,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	session.Lock()
 	defer session.Unlock()
 
-	if session.method == CONN_M_EXEC {
+	if session.method == CONN_M_EXEC || session.method == CONN_M_PLAY {
 		if session.status == CONN_S_CONNECTED &&
 			session.options.PermitShare {
 			ws_clone(session, r, query, conn, cip)

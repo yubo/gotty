@@ -6,9 +6,12 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+	"path"
 	"time"
 
 	"github.com/docker/docker/pkg/namesgenerator"
+	"github.com/golang/glog"
+	"github.com/yubo/gotty/rec"
 )
 
 var (
@@ -40,24 +43,69 @@ func (c *Cmd) Ps(arg *CallOptions, reply *[]Session_info) error {
 	return nil
 }
 
-func (c *Cmd) Exec(arg *CallOptions, key *ConnKey) error {
-	key.Addr = arg.Opt.Addr
-	key.Name = arg.Opt.Name
+func (c *Cmd) Exec(arg *CallOptions, info *Session_info) error {
+	var recorder *rec.Recorder
+	var err error
 
-	if key.Name == "" {
-		if err := keyGenerator(key); err != nil {
+	info.Key.Addr = arg.Opt.Addr
+	info.Key.Name = arg.Opt.Name
+
+	if info.Key.Name == "" {
+		if err := keyGenerator(&info.Key); err != nil {
 			return err
 		}
 	}
+	if arg.Opt.Rec {
+		if recorder, err = rec.NewRecorder(expandHomeDir(tty.options.RecFileDir)); err != nil {
+			return err
+		}
+	}
+	info.RecId = path.Base(recorder.FileName)
 	sess := &session{
-		key:        *key,
+		key:        info.Key,
 		linkNb:     1,
 		status:     CONN_S_WAITING,
 		method:     CONN_M_EXEC,
 		createTime: time.Now().Unix(),
 		options:    &arg.Opt,
 		command:    arg.Args,
-		nets:       parseAddr(key.Addr),
+		nets:       parseAddr(info.Key.Addr),
+		recorder:   recorder,
+		context:    &clientContext{},
+	}
+	return tty.newWaitingConn(sess)
+}
+
+func (c *Cmd) Play(arg *CallOptions, info *Session_info) error {
+	var player *rec.Player
+	var err error
+
+	info.Key.Addr = arg.Opt.Addr
+	info.Key.Name = arg.Opt.Name
+	info.RecId = arg.Opt.RecId
+
+	if info.Key.Name == "" {
+		if err := keyGenerator(&info.Key); err != nil {
+			return err
+		}
+	}
+
+	if player, err = rec.NewPlayer(expandHomeDir(tty.options.RecFileDir)+
+		"/"+info.RecId, arg.Opt.Speed, arg.Opt.Repeat); err != nil {
+		glog.Info(err.Error())
+		return err
+	}
+	sess := &session{
+		key:        info.Key,
+		linkNb:     1,
+		status:     CONN_S_WAITING,
+		method:     CONN_M_PLAY,
+		createTime: time.Now().Unix(),
+		options:    &arg.Opt,
+		command:    arg.Args,
+		nets:       parseAddr(info.Key.Addr),
+		player:     player,
+		context:    &clientContext{},
 	}
 	return tty.newWaitingConn(sess)
 }
@@ -95,6 +143,7 @@ func (c *Cmd) Attach(arg CallOptions, key *ConnKey) error {
 			createTime: time.Now().Unix(),
 			options:    &arg.Opt,
 			command:    arg.Args,
+			context:    &clientContext{},
 		}
 		return tty.newWaitingConn(sess)
 	} else {
