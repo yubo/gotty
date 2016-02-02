@@ -9,8 +9,11 @@
 
 GoTTY Fork from https://github.com/yudai/gotty.git. A simple command line tool that turns your CLI tools into web applications. 
 
+create a session
 [![demo](https://asciinema.org/a/4itvykdx2a9m1l4khgqm8jner.png)](https://asciinema.org/a/4itvykdx2a9m1l4khgqm8jner?autoplay=1)
 
+record/replay a session
+[![demo](https://asciinema.org/a/cpkhygqp9xun8a7p7nuuqufou.png)](https://asciinema.org/a/cpkhygqp9xun8a7p7nuuqufou?autoplay=1)
 # Example
 ---
 #### server deamon
@@ -39,7 +42,7 @@ preferences {
 }
 ```
 
-#### create a seesion
+#### create a session
 
 Server side
 ```shell
