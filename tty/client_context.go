@@ -249,6 +249,10 @@ func (context *clientContext) processReceive() {
 		switch rx.p[0] {
 		case rec.Input:
 			if !daemon.session[rx.key].options.PermitWrite {
+				if len(rx.p) == 2 && (rx.p[1] == 3 || rx.p[1] == 4) {
+					//close conn by ctrl-c/ctrl-d
+					daemon.session[rx.key].context.close(rx.key)
+				}
 				break
 			}
 

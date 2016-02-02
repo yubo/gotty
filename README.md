@@ -51,7 +51,7 @@ $gotty exec -w -share -name abc -addr=127.0.0.0/8,172.16.0.0/16 /bin/bash
 
 Client side
 ```shell
-$gotty-client http://127.0.0.1:9000/?name=abc
+$gotty "http://127.0.0.1:9000/?name=abc&addr=0.0.0.0/0"
 ```
 
 #### attach a session
@@ -66,7 +66,7 @@ Client side
 #Open the URL on Web browser
 http://127.0.0.1:9000/?name=bbb&addr=0.0.0.0/0
 # or
-$gotty-client http://127.0.0.1:9000/?name=bbb&addr=0.0.0.0/0
+$gotty "http://127.0.0.1:9000/?name=bbb&addr=0.0.0.0/0"
 ```
 
 #### record/replay session
