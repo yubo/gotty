@@ -8,6 +8,10 @@
 			"Rev": "9e2a2714de21eb092ead2ef56d8c7a60d7928819"
 		},
 		{
+			"ImportPath": "github.com/creack/goselect",
+			"Rev": "b6bf36f9c888ae5ea2635ad7cd1e2074ebb2fd28"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/pkg/namesgenerator",
 			"Comment": "v1.4.1-7166-g75128c4",
 			"Rev": "75128c46c7881325c87de8797b455534558784ed"
@@ -45,6 +49,10 @@
 		{
 			"ImportPath": "github.com/yubo/gotool/flags",
 			"Rev": "b1459bfaa4deeb33c4fa1586a883c0639d7591dd"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/ssh/terminal",
+			"Rev": "1f22c0103821b9390939b6776727195525381532"
 		}
 	]
 }
