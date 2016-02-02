@@ -9,6 +9,8 @@
 
 GoTTY Fork from https://github.com/yudai/gotty.git. A simple command line tool that turns your CLI tools into web applications. 
 
+[![demo](https://asciinema.org/a/4itvykdx2a9m1l4khgqm8jner.png)](https://asciinema.org/a/4itvykdx2a9m1l4khgqm8jner?autoplay=1)
+
 # Example
 ---
 #### server deamon
