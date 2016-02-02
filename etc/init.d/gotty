@@ -11,11 +11,11 @@
 
 # Author: Yu Bo <yubo@yubo.org>
 
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:$GOPATH/bin
 DESC="gotty daemon"
 NAME=gotty
 DAEMON=/usr/sbin/gotty
-DAEMON_OPTS=" -log_dir=/var/log/gotty -stderrthreshold=0 daemon /bin/bash"
+DAEMON_OPTS=" -log_dir=/var/log/gotty daemon /bin/bash"
 PIDFILE=/var/run/"$NAME".pid
 SCRIPTNAME=/etc/init.d/"$NAME"
 

@@ -116,6 +116,7 @@ type Options struct {
 	WaitingConnTime     int                    `hcl:"waiting_conn_time"`
 	RecFileDir          string                 `hcl:"rec_file_dir"`
 	SkipTlsVerify       bool                   `hcl:"skip_tls_verify"`
+	UnixSocket          string                 `hcl:"unix_socket"`
 }
 
 type CallOptions struct {
@@ -193,6 +194,7 @@ var (
 		WaitingConnTime:     10,
 		RecFileDir:          "/var/lib/gotty",
 		SkipTlsVerify:       false,
+		UnixSocket:          "/tmp/gotty.sock",
 	}
 	DefaultCmdOptions = CmdOptions{
 		All:              false,

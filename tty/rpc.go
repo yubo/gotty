@@ -30,7 +30,7 @@ func (c *Cmd) Ps(arg *CallOptions, reply *[]Session_info) error {
 			info.PKey = session.linkTo.key
 			info.Command = session.linkTo.command
 		}
-		if session.context != nil {
+		if session.context != nil && session.context.request != nil {
 			info.RemoteAddr = session.context.request.RemoteAddr
 		}
 		*reply = append(*reply, info)
@@ -185,7 +185,7 @@ func rpcInit() error {
 
 	rpc.Register(cmd)
 
-	l, err := net.Listen("unix", UNIX_SOCKET)
+	l, err := net.Listen("unix", GlobalOpt.UnixSocket)
 	if err != nil {
 		return err
 	}
@@ -215,11 +215,11 @@ func rpcInit() error {
 }
 
 func rpc_done() {
-	os.Remove(UNIX_SOCKET)
+	os.Remove(GlobalOpt.UnixSocket)
 }
 
 func Call(serviceMethod string, args interface{}, reply interface{}) error {
-	client, err := rpc.Dial("unix", UNIX_SOCKET)
+	client, err := rpc.Dial("unix", GlobalOpt.UnixSocket)
 	if err != nil {
 		return err
 	}

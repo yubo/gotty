@@ -51,3 +51,6 @@ install:
 	install -m 0755 etc/init.d/gotty /etc/init.d/
 	install -m 0644 etc/gotty/gotty.conf /etc/gotty
 	/usr/sbin/update-rc.d gotty defaults
+
+run:
+	./gotty  -logtostderr -v 3 -c ./etc/gotty/gotty.run.conf daemon
