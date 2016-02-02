@@ -9,18 +9,26 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/yubo/gotool/flags"
+	"github.com/yubo/gotty/gottyclient"
 	"github.com/yubo/gotty/rec"
 )
 
 func init() {
-	flags.CommandLine.Usage = "Share your terminal as a web application"
+	flags.CommandLine.Usage = fmt.Sprintf("Usage: %s [OPTIONS] COMMAND [arg...]\n"+
+		"       %s [OPTIONS] URL\n\n"+
+		"Share your terminal as a web application",
+		os.Args[0], os.Args[0])
 	flags.CommandLine.Name = "gotty"
+
+	// Global options
+	flag.StringVar(&configFile, "c",
+		"/etc/gotty/gotty.conf", "Config file path")
+	flag.BoolVar(&GlobalOpt.SkipTlsVerify, "skip-tls-verify",
+		DefaultOptions.SkipTlsVerify, "Skip TLS verify")
 
 	// daemon
 	cmd := flags.NewCommand("daemon", "Enable daemon mode",
 		daemon_handle, flag.ExitOnError)
-	cmd.StringVar(&configFile, "c",
-		"/etc/gotty/gotty.conf", "Config file path")
 
 	// exec
 	cmd = flags.NewCommand("exec", "Run a command in a new pty",
@@ -73,6 +81,7 @@ func init() {
 	cmd = flags.NewCommand("play",
 		"replay recorded file in a webtty",
 		play_handle, flag.ExitOnError)
+	cmd.StringVar(&CmdOpt.SName, "i", "", "play input id/filename in current tty")
 	cmd.StringVar(&CmdOpt.Name, "name", "", "set tty session name")
 	cmd.StringVar(&CmdOpt.Addr, "addr",
 		DefaultCmdOptions.Addr,
@@ -110,7 +119,7 @@ func daemon_handle(arg interface{}) {
 		exit(err, 6)
 	}
 
-	err := tty_init(&GlobalOpt, args)
+	err := daemonInit(&GlobalOpt, args)
 	if err != nil {
 		exit(err, 3)
 	}
@@ -217,6 +226,16 @@ func convert_handle(arg interface{}) {
 
 func version_handle(arg interface{}) {
 	fmt.Fprintf(os.Stdout, "%s\n", Version)
+}
+
+func GottyClient(skipTlsVerify bool, url string) error {
+	client, err := gottyclient.NewClient(url)
+	if err != nil {
+		return err
+	}
+
+	client.SkipTLSVerify = skipTlsVerify
+	return client.Loop()
 }
 
 func exit(err error, code int) {

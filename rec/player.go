@@ -50,7 +50,7 @@ func (p *Player) Read(d []byte) (n int, err error) {
 				p.start = Nanotime()
 				p.f.Seek(0, 0)
 				p.dec = gob.NewDecoder(p.f)
-				glog.Infof("read %s EOF, replay again", p.FileName)
+				glog.V(2).Infof("read %s EOF, replay again", p.FileName)
 				continue
 			} else {
 				p.Close()

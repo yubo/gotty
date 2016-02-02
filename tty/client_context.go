@@ -40,7 +40,7 @@ func (context *clientContext) goHandleClientJoin() error {
 func (context *clientContext) goHandleClient() {
 	exit := make(chan bool, 2)
 
-	tty.server.StartRoutine()
+	daemon.server.StartRoutine()
 	(*context.connections)[context.session.key] = context.connection
 	go func() {
 		defer func() { exit <- true }()
@@ -66,9 +66,9 @@ func (context *clientContext) goHandleClient() {
 		// Even if the PTY has been closed,
 		// Read(0 in processSend() keeps blocking and the process doen't exit
 		if context.session.method != CONN_M_PLAY {
-			context.command.Process.Signal(syscall.Signal(tty.options.CloseSignal))
+			context.command.Process.Signal(syscall.Signal(daemon.options.CloseSignal))
 		}
-		tty.server.FinishRoutine()
+		daemon.server.FinishRoutine()
 
 		context.command.Wait()
 		for key, _ := range *context.connections {
@@ -102,23 +102,23 @@ func (context *clientContext) goHandleClient() {
 func (context *clientContext) close(key ConnKey) {
 	if conn, ok := (*context.connections)[key]; ok {
 		conn.conn.Close()
-		tty.session[key].status = CONN_S_CLOSED
+		daemon.session[key].status = CONN_S_CLOSED
 		delete(*context.connections, key)
 
-		if tty.session[key].linkTo != nil {
-			n := atomic.AddInt32(&tty.session[key].linkTo.linkNb, -1)
-			glog.Infof("linkNb:%d should be:%d", n,
-				len(*tty.session[key].linkTo.context.connections))
+		if daemon.session[key].linkTo != nil {
+			n := atomic.AddInt32(&daemon.session[key].linkTo.linkNb, -1)
+			glog.V(2).Infof("linkNb:%d should be:%d", n,
+				len(*daemon.session[key].linkTo.context.connections))
 			if n == 0 {
-				delete(tty.session, tty.session[key].linkTo.key)
+				delete(daemon.session, daemon.session[key].linkTo.key)
 			}
 		}
 
-		n := atomic.AddInt32(&tty.session[key].linkNb, -1)
-		if tty.session[key].linkNb == 0 {
-			delete(tty.session, key)
+		n := atomic.AddInt32(&daemon.session[key].linkNb, -1)
+		if daemon.session[key].linkNb == 0 {
+			delete(daemon.session, key)
 		}
-		glog.Infof("connection closed:%s, linkNb:%d", key, n)
+		glog.V(2).Infof("connection closed:%s, linkNb:%d", key, n)
 	}
 }
 
@@ -187,7 +187,7 @@ func (context *clientContext) sendInitialize() error {
 	}
 
 	titleBuffer := new(bytes.Buffer)
-	if err := tty.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
+	if err := daemon.titleTemplate.Execute(titleBuffer, titleVars); err != nil {
 		return err
 	}
 	if err := context.connection.write(append([]byte{rec.SetWindowTitle},
@@ -195,12 +195,12 @@ func (context *clientContext) sendInitialize() error {
 		return err
 	}
 
-	prefStruct := structs.New(tty.options.Preferences)
+	prefStruct := structs.New(daemon.options.Preferences)
 	prefMap := prefStruct.Map()
 	htermPrefs := make(map[string]interface{})
 	for key, value := range prefMap {
 		rawKey := prefStruct.Field(key).Tag("hcl")
-		if _, ok := tty.options.RawPreferences[rawKey]; ok {
+		if _, ok := daemon.options.RawPreferences[rawKey]; ok {
 			htermPrefs[strings.Replace(rawKey, "_", "-", -1)] = value
 		}
 	}
@@ -213,8 +213,8 @@ func (context *clientContext) sendInitialize() error {
 		prefs...)); err != nil {
 		return err
 	}
-	if tty.options.EnableReconnect {
-		reconnect, _ := json.Marshal(tty.options.ReconnectTime)
+	if daemon.options.EnableReconnect {
+		reconnect, _ := json.Marshal(daemon.options.ReconnectTime)
 		if err := context.connection.write(append([]byte{rec.SetReconnect},
 			reconnect...)); err != nil {
 			return err
@@ -248,7 +248,7 @@ func (context *clientContext) processReceive() {
 
 		switch rx.p[0] {
 		case rec.Input:
-			if !tty.session[rx.key].options.PermitWrite {
+			if !daemon.session[rx.key].options.PermitWrite {
 				break
 			}
 

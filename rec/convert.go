@@ -9,8 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-
-	"github.com/golang/glog"
 )
 
 type Duration float64
@@ -120,7 +118,7 @@ func Convert(src, dst string, wait int64) error {
 			var args ArgResizeTerminal
 			err = json.Unmarshal(buf.Data[1:], &args)
 			if err != nil {
-				glog.Errorln("Malformed remote command")
+				fmt.Fprintf(os.Stderr, "Malformed remote command")
 			} else {
 				asciicast.Height = int(args.Rows)
 				asciicast.Width = int(args.Columns)
@@ -129,7 +127,7 @@ func Convert(src, dst string, wait int64) error {
 			var args ArgEnvTerminal
 			err = json.Unmarshal(buf.Data[1:], &args)
 			if err != nil {
-				glog.Errorln("Malformed remote command")
+				fmt.Fprintf(os.Stderr, "Malformed remote command")
 			} else {
 				asciicast.Env.Shell = args.Shell
 				asciicast.Env.Term = args.Term

@@ -33,10 +33,12 @@ import (
 )
 
 var (
-	tty *Tty
+	daemon *Daemon
 	//session   *Session
-	GlobalOpt Options = DefaultOptions
-	env       map[string]string
+	CmdOpt     CmdOptions
+	configFile string
+	GlobalOpt  Options = DefaultOptions
+	env        map[string]string
 )
 
 func Parse() {
@@ -52,24 +54,24 @@ func Parse() {
 
 }
 
-func clean(options *Options) {
+func cleanWaitingConn(options *Options) {
 	now := time.Now().Unix()
-	e := tty.waitingConn.list.Front()
+	e := daemon.waitingConn.list.Front()
 	for e != nil {
 		if e.Value.(*session).createTime+
 			int64(options.WaitingConnTime) > now {
 			break
 		}
 		n := e.Next()
-		sess := tty.waitingConn.Remove(e).(*session)
+		sess := daemon.waitingConn.Remove(e).(*session)
 
 		if sess.status == CONN_S_WAITING {
 			sess.Lock()
-			glog.Infof("name[%s] addr[%s] waiting conntion timeout\n",
+			glog.V(3).Infof("name[%s] addr[%s] waiting conntion timeout\n",
 				sess.key.Name, sess.key.Addr)
-			//remove from tty.session
+			//remove from deamon.session
 			sess.status = CONN_S_CLOSED
-			delete(tty.session, sess.key)
+			delete(daemon.session, sess.key)
 			if sess.options.Rec && sess.recorder != nil {
 				name := sess.recorder.FileName
 				sess.recorder.Close()
@@ -82,17 +84,17 @@ func clean(options *Options) {
 	}
 }
 
-func clean_worker(options *Options) {
+func cleanWorker(options *Options) {
 	t := time.NewTicker(time.Second).C
 	for {
 		select {
 		case <-t:
-			clean(options)
+			cleanWaitingConn(options)
 		}
 	}
 }
 
-func tty_init(options *Options, command []string) error {
+func daemonInit(options *Options, command []string) error {
 	// called after Parse()
 	//
 
@@ -103,7 +105,7 @@ func tty_init(options *Options, command []string) error {
 		return errors.New("Title format string syntax error")
 	}
 
-	tty = &Tty{
+	daemon = &Daemon{
 		options: options,
 		upgrader: &websocket.Upgrader{
 			ReadBufferSize:  1024,
@@ -116,8 +118,8 @@ func tty_init(options *Options, command []string) error {
 	}
 
 	// waiting conn clean routine
-	go clean_worker(options)
-	return rpc_init()
+	go cleanWorker(options)
+	return rpcInit()
 }
 
 func applyConfigFile(options *Options, filePath string) error {
@@ -127,7 +129,7 @@ func applyConfigFile(options *Options, filePath string) error {
 	}
 
 	fileString := []byte{}
-	glog.Infof("Loading config file at: %s", filePath)
+	glog.V(3).Infof("Loading config file at: %s", filePath)
 	fileString, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -151,7 +153,7 @@ func checkConfig(options *Options) error {
 func run() error {
 
 	if GlobalOpt.Once {
-		glog.Infof("Once option is provided, accepting only one client")
+		glog.V(3).Infof("Once option is provided, accepting only one client")
 	}
 
 	path := ""
@@ -161,8 +163,8 @@ func run() error {
 
 	endpoint := net.JoinHostPort(GlobalOpt.Address, GlobalOpt.Port)
 
-	customIndexHandler := http.HandlerFunc(tty.handleCustomIndex)
-	authTokenHandler := http.HandlerFunc(tty.handleAuthToken)
+	customIndexHandler := http.HandlerFunc(daemon.handleCustomIndex)
+	authTokenHandler := http.HandlerFunc(daemon.handleAuthToken)
 	staticHandler := http.FileServer(
 		&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: "static"},
 	)
@@ -170,7 +172,7 @@ func run() error {
 	var siteMux = http.NewServeMux()
 
 	if GlobalOpt.IndexFile != "" {
-		glog.Infof("Using index file at " + GlobalOpt.IndexFile)
+		glog.V(3).Infof("Using index file at " + GlobalOpt.IndexFile)
 		siteMux.Handle(path+"/", customIndexHandler)
 	} else {
 		siteMux.Handle(path+"/", http.StripPrefix(path+"/", staticHandler))
@@ -182,7 +184,7 @@ func run() error {
 	siteHandler := http.Handler(siteMux)
 
 	if GlobalOpt.EnableBasicAuth {
-		glog.Infof("Using Basic Authentication")
+		glog.V(3).Infof("Using Basic Authentication")
 		siteHandler = wrapBasicAuth(siteHandler, GlobalOpt.Credential)
 	}
 
@@ -205,13 +207,13 @@ func run() error {
 		)
 	*/
 	if GlobalOpt.Address != "" {
-		glog.Infof(
+		glog.V(0).Infof(
 			"URL: %s",
 			(&url.URL{Scheme: scheme, Host: endpoint, Path: path + "/"}).String(),
 		)
 	} else {
 		for _, address := range listAddresses() {
-			glog.Infof(
+			glog.V(0).Infof(
 				"URL: %s",
 				(&url.URL{
 					Scheme: scheme,
@@ -222,38 +224,38 @@ func run() error {
 		}
 	}
 
-	server, err := makeServer(tty, endpoint, &siteHandler)
+	server, err := makeServer(daemon, endpoint, &siteHandler)
 	if err != nil {
 		return errors.New("Failed to build server: " + err.Error())
 	}
-	tty.server = manners.NewWithServer(server)
+	daemon.server = manners.NewWithServer(server)
 
 	if GlobalOpt.EnableTLS {
 		crtFile := expandHomeDir(GlobalOpt.TLSCrtFile)
 		keyFile := expandHomeDir(GlobalOpt.TLSKeyFile)
-		glog.Infof("TLS crt file: " + crtFile)
-		glog.Infof("TLS key file: " + keyFile)
+		glog.V(0).Infof("TLS crt file: " + crtFile)
+		glog.V(0).Infof("TLS key file: " + keyFile)
 
-		err = tty.server.ListenAndServeTLS(crtFile, keyFile)
+		err = daemon.server.ListenAndServeTLS(crtFile, keyFile)
 	} else {
-		err = tty.server.ListenAndServe()
+		err = daemon.server.ListenAndServe()
 	}
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("Exiting...")
+	glog.V(0).Infof("Exiting...")
 
 	return nil
 }
 
-func (tty *Tty) newWaitingConn(sess *session) error {
+func (tty *Daemon) newWaitingConn(sess *session) error {
 	sess.Lock()
 	defer sess.Unlock()
 
-	if _, exsit := tty.session[sess.key]; !exsit {
-		tty.session[sess.key] = sess
-		tty.waitingConn.Push(sess)
+	if _, exsit := daemon.session[sess.key]; !exsit {
+		daemon.session[sess.key] = sess
+		daemon.waitingConn.Push(sess)
 		return nil
 	} else {
 		return fmt.Errorf("the key name[%s] addr[%s] is exsit",
@@ -262,7 +264,7 @@ func (tty *Tty) newWaitingConn(sess *session) error {
 
 }
 
-func makeServer(tty *Tty, addr string, handler *http.Handler) (*http.Server, error) {
+func makeServer(daemon *Daemon, addr string, handler *http.Handler) (*http.Server, error) {
 	server := &http.Server{
 		Addr:    addr,
 		Handler: *handler,
@@ -270,7 +272,7 @@ func makeServer(tty *Tty, addr string, handler *http.Handler) (*http.Server, err
 
 	if GlobalOpt.EnableTLSClientAuth {
 		caFile := expandHomeDir(GlobalOpt.TLSCACrtFile)
-		glog.Infof("CA file: " + caFile)
+		glog.V(0).Infof("CA file: " + caFile)
 		caCert, err := ioutil.ReadFile(caFile)
 		if err != nil {
 			return nil, errors.New("Could not open CA crt file " + caFile)
@@ -320,7 +322,7 @@ func ws_clone(sess *session, r *http.Request,
 		},
 	}
 	s.context.session = s
-	tty.session[key] = s
+	daemon.session[key] = s
 	return s.context.goHandleClientJoin()
 }
 
@@ -345,19 +347,19 @@ func ws_connect(session *session, r *http.Request,
 		ptyIo, err := pty.Start(cmd)
 		if err != nil {
 			glog.Errorln("Failed to execute command", err)
-			delete(tty.session, session.key)
+			delete(daemon.session, session.key)
 			conn.Close()
 			return
 		}
 		session.context.pty = ptyIo
 		session.context.fd = ptyIo.Fd()
 		session.context.command = cmd
-		glog.Infof("Command is running for client %s with PID %d (args=%q)",
+		glog.V(0).Infof("Command is running for client %s with PID %d (args=%q)",
 			r.RemoteAddr, cmd.Process.Pid, strings.Join(argv, " "))
 	} else if session.method == CONN_M_PLAY {
 		session.context.pty = session.player
 		session.context.command = &exec.Cmd{Process: &os.Process{}}
-		//player := tty.player
+		//player := daemon.player
 	}
 	session.context.goHandleClient()
 
@@ -370,29 +372,29 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	var ok bool
 	var cip string
 
-	glog.Infof("New client connected: %s", r.RemoteAddr)
+	glog.V(2).Infof("New client connected: %s", r.RemoteAddr)
 
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)
 		return
 	}
 
-	conn, err := tty.upgrader.Upgrade(w, r, nil)
+	conn, err := daemon.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		glog.Infof("Failed to upgrade connection: " + err.Error())
+		glog.V(2).Infof("Failed to upgrade connection: " + err.Error())
 		return
 	}
 
 	_, stream, err := conn.ReadMessage()
 	if err != nil {
-		glog.Infof("Failed to authenticate websocket connection")
+		glog.V(2).Infof("Failed to authenticate websocket connection")
 		conn.Close()
 		return
 	}
 
 	err = json.Unmarshal(stream, &init)
 	if err != nil {
-		glog.Infof("Failed to parse init message %v", err)
+		glog.V(2).Infof("Failed to parse init message %v", err)
 		conn.Close()
 		return
 	}
@@ -408,7 +410,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	query, err := url.Parse(init.Arguments)
 	if err != nil {
-		glog.Infof("Failed to parse arguments")
+		glog.V(2).Infof("Failed to parse arguments")
 		conn.Close()
 		return
 	}
@@ -422,7 +424,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	//}
 
 	if cip, _, err = net.SplitHostPort(r.RemoteAddr); err != nil {
-		glog.Infof("Failed to authenticate websocket connection")
+		glog.V(2).Infof("Failed to authenticate websocket connection")
 		conn.Close()
 		return
 	}
@@ -431,14 +433,14 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		key.Addr = cip
 	}
 
-	if session, ok = tty.session[key]; !ok {
-		glog.Infof("name:%s addr:%s is not exist\n", key.Name, key.Addr)
+	if session, ok = daemon.session[key]; !ok {
+		glog.V(2).Infof("name:%s addr:%s is not exist\n", key.Name, key.Addr)
 		conn.Close()
 		return
 	}
 
 	if !ipFilter(cip, session.nets) {
-		glog.Infof("RemoteAddr:%s is not allowed to access name:%s addr:%s\n",
+		glog.V(2).Infof("RemoteAddr:%s is not allowed to access name:%s addr:%s\n",
 			cip, key.Name, key.Addr)
 		conn.Close()
 		return
@@ -455,14 +457,14 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			ws_connect(session, r, query, conn)
 			return
 		} else {
-			glog.Infof("name:%s addr:%s status is %s, not allow to connect\n",
+			glog.V(2).Infof("name:%s addr:%s status is %s, not allow to connect\n",
 				key.Name, key.Addr, session.status)
 			conn.Close()
 			return
 		}
 	} else if session.method == CONN_M_ATTACH {
 		if session.status != CONN_S_WAITING {
-			glog.Infof("name:%s addr:%s status is %s, not waiting\n",
+			glog.V(2).Infof("name:%s addr:%s status is %s, not waiting\n",
 				key.Name, key.Addr, session.status)
 			conn.Close()
 			return
@@ -485,11 +487,11 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (tty *Tty) handleCustomIndex(w http.ResponseWriter, r *http.Request) {
+func (tty *Daemon) handleCustomIndex(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, expandHomeDir(GlobalOpt.IndexFile))
 }
 
-func (tty *Tty) handleAuthToken(w http.ResponseWriter, r *http.Request) {
+func (tty *Daemon) handleAuthToken(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("var gotty_auth_token = '" + GlobalOpt.Credential + "';"))
 }
 
@@ -497,10 +499,10 @@ func Exit() (firstCall bool) {
 
 	rpc_done()
 
-	if tty.server != nil {
-		firstCall = tty.server.Close()
+	if daemon.server != nil {
+		firstCall = daemon.server.Close()
 		if firstCall {
-			glog.Infof("Received Exit command, waiting for all clients to close sessions...")
+			glog.V(0).Infof("Received Exit command, waiting for all clients to close sessions...")
 		}
 		return firstCall
 	}
@@ -544,7 +546,7 @@ func wrapBasicAuth(handler http.Handler, credential string) http.Handler {
 			return
 		}
 
-		glog.Infof("Basic Authentication Succeeded: %s", r.RemoteAddr)
+		glog.V(2).Infof("Basic Authentication Succeeded: %s", r.RemoteAddr)
 		handler.ServeHTTP(w, r)
 	})
 }

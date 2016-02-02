@@ -14,15 +14,10 @@ import (
 	"github.com/yubo/gotty/rec"
 )
 
-var (
-	CmdOpt     CmdOptions
-	configFile string
-)
-
 type Cmd int
 
 func (c *Cmd) Ps(arg *CallOptions, reply *[]Session_info) error {
-	for _, session := range tty.session {
+	for _, session := range daemon.session {
 		info := Session_info{
 			Key:      session.key,
 			Method:   session.method,
@@ -57,11 +52,11 @@ func (c *Cmd) Exec(arg *CallOptions, info *Session_info) error {
 	}
 	if arg.Opt.Rec {
 		if recorder, err = rec.NewRecorder(env["TERM"], env["SHELL"],
-			arg.Args[0], expandHomeDir(tty.options.RecFileDir)); err != nil {
+			arg.Args[0], expandHomeDir(daemon.options.RecFileDir)); err != nil {
 			return err
 		}
+		info.RecId = path.Base(recorder.FileName)
 	}
-	info.RecId = path.Base(recorder.FileName)
 	sess := &session{
 		key:        info.Key,
 		linkNb:     1,
@@ -74,7 +69,7 @@ func (c *Cmd) Exec(arg *CallOptions, info *Session_info) error {
 		recorder:   recorder,
 		context:    &clientContext{},
 	}
-	return tty.newWaitingConn(sess)
+	return daemon.newWaitingConn(sess)
 }
 
 func (c *Cmd) Play(arg *CallOptions, info *Session_info) error {
@@ -91,10 +86,10 @@ func (c *Cmd) Play(arg *CallOptions, info *Session_info) error {
 		}
 	}
 
-	if player, err = rec.NewPlayer(expandHomeDir(tty.options.RecFileDir)+
+	if player, err = rec.NewPlayer(expandHomeDir(daemon.options.RecFileDir)+
 		"/"+info.RecId, arg.Opt.Speed, arg.Opt.Repeat,
 		arg.Opt.MaxWait); err != nil {
-		glog.Info(err.Error())
+		glog.V(2).Info(err.Error())
 		return err
 	}
 	sess := &session{
@@ -109,7 +104,7 @@ func (c *Cmd) Play(arg *CallOptions, info *Session_info) error {
 		player:     player,
 		context:    &clientContext{},
 	}
-	return tty.newWaitingConn(sess)
+	return daemon.newWaitingConn(sess)
 }
 
 func (c *Cmd) Attach(arg CallOptions, key *ConnKey) error {
@@ -120,7 +115,7 @@ func (c *Cmd) Attach(arg CallOptions, key *ConnKey) error {
 		Addr: arg.Opt.SAddr,
 	}
 
-	if s, ok := tty.session[skey]; ok {
+	if s, ok := daemon.session[skey]; ok {
 		if key.Name == "" {
 			if err := keyGenerator(key); err != nil {
 				return err
@@ -147,7 +142,7 @@ func (c *Cmd) Attach(arg CallOptions, key *ConnKey) error {
 			command:    arg.Args,
 			context:    &clientContext{},
 		}
-		return tty.newWaitingConn(sess)
+		return daemon.newWaitingConn(sess)
 	} else {
 		return fmt.Errorf("session{name:\"%s\", addr:\"%s\"} is not exist",
 			skey.Name, skey.Addr)
@@ -156,7 +151,7 @@ func (c *Cmd) Attach(arg CallOptions, key *ConnKey) error {
 func (c *Cmd) Close(arg *CallOptions, keys *[]ConnKey) error {
 	key := ConnKey{Name: arg.Opt.Name, Addr: arg.Opt.Addr}
 
-	s, ok := tty.session[key]
+	s, ok := daemon.session[key]
 	if !ok {
 		return fmt.Errorf("session{name:\"%s\", addr:\"%s\"} is not exist",
 			key.Name, key.Addr)
@@ -177,7 +172,7 @@ func (c *Cmd) Close(arg *CallOptions, keys *[]ConnKey) error {
 func keyGenerator(key *ConnKey) error {
 	for i := 0; i < 10; i++ {
 		key.Name = namesgenerator.GetRandomName(i)
-		if _, exsit := tty.session[*key]; exsit {
+		if _, exsit := daemon.session[*key]; exsit {
 			continue
 		}
 		return nil
@@ -185,7 +180,7 @@ func keyGenerator(key *ConnKey) error {
 	return errors.New("key generator fail")
 }
 
-func rpc_init() error {
+func rpcInit() error {
 	cmd := new(Cmd)
 
 	rpc.Register(cmd)

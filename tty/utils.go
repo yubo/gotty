@@ -12,7 +12,7 @@ func parseAddr(addrs string) *[]*net.IPNet {
 	var nets []*net.IPNet
 	for _, addr := range strings.Split(addrs, ",") {
 		if _, net, err := net.ParseCIDR(addr); err != nil {
-			glog.Info(err.Error())
+			glog.V(2).Info(err.Error())
 		} else {
 			nets = append(nets, net)
 		}

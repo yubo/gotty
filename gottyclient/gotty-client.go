@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/creack/goselect"
+	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -102,7 +102,7 @@ func (c *Client) GetAuthToken() (string, error) {
 		return "", err
 	}
 
-	logrus.Debugf("Fetching auth token auth-token: %q", target.String())
+	glog.V(3).Infof("Fetching auth token auth-token: %q", target.String())
 	req, err := http.NewRequest("GET", target.String(), nil)
 	req.Header = *header
 	client := http.Client{}
@@ -145,14 +145,14 @@ func (c *Client) Connect() error {
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("Auth-token: %q", authToken)
+	glog.V(3).Infof("Auth-token: %q", authToken)
 
 	// Open WebSocket connection
 	target, header, err := GetWebsocketURL(c.URL)
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("Connecting to websocket: %q", target.String())
+	glog.V(3).Infof("Connecting to websocket: %q", target.String())
 	if c.SkipTLSVerify {
 		c.Dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
@@ -174,11 +174,11 @@ func (c *Client) Connect() error {
 	}
 	json, err := json.Marshal(querySingle)
 	if err != nil {
-		logrus.Errorf("Failed to parse init message %v", err)
+		glog.Errorf("Failed to parse init message %v", err)
 		return err
 	}
 	// Send Json
-	logrus.Debugf("Sending arguments and auth-token")
+	glog.V(3).Infof("Sending arguments and auth-token")
 	err = c.write(json)
 	if err != nil {
 		return err
@@ -191,7 +191,7 @@ func (c *Client) Connect() error {
 
 func (c *Client) pingLoop() {
 	for {
-		logrus.Debugf("Sending ping")
+		glog.V(3).Infof("Sending ping")
 		c.write([]byte("1"))
 		time.Sleep(30 * time.Second)
 	}
@@ -236,6 +236,7 @@ func (c *Client) Loop() error {
 	case <-c.QuitChan:
 	}
 	wg.Wait()
+	fmt.Fprintf(os.Stdout, "connection closed\n")
 	return nil
 }
 
@@ -255,10 +256,10 @@ func (c *Client) termsizeLoop(wg *sync.WaitGroup) {
 
 	for {
 		if b, err := syscallTIOCGWINSZ(); err != nil {
-			logrus.Warn(err)
+			glog.V(1).Info(err)
 		} else {
 			if err = c.write(append([]byte("2"), b...)); err != nil {
-				logrus.Warnf("ws.WriteMessage failed: %v", err)
+				glog.V(1).Infof("ws.WriteMessage failed: %v", err)
 			}
 		}
 		select {
@@ -336,20 +337,20 @@ func (c *Client) readLoop(done chan bool, wg *sync.WaitGroup) {
 			if msg.Err != nil {
 				done <- true
 				if _, ok := msg.Err.(*websocket.CloseError); !ok {
-					logrus.Warnf("c.Conn.ReadMessage: %v", msg.Err)
+					glog.V(1).Infof("c.Conn.ReadMessage: %v", msg.Err)
 				}
 				return
 			}
 			if len(msg.Data) == 0 {
 				done <- true
-				logrus.Warnf("An error has occured")
+				glog.V(1).Infof("An error has occured")
 				return
 			}
 			switch msg.Data[0] {
 			case '0': // data
 				buf, err := base64.StdEncoding.DecodeString(string(msg.Data[1:]))
 				if err != nil {
-					logrus.Warnf("Invalid base64 content: %q", msg.Data[1:])
+					glog.V(1).Infof("Invalid base64 content: %q", msg.Data[1:])
 					break
 				}
 				c.Output.Write(buf)
@@ -358,11 +359,11 @@ func (c *Client) readLoop(done chan bool, wg *sync.WaitGroup) {
 				newTitle := string(msg.Data[1:])
 				fmt.Fprintf(c.Output, "\033]0;%s\007", newTitle)
 			case '3': // json prefs
-				logrus.Debugf("Unhandled protocol message: json pref: %s", string(msg.Data[1:]))
+				glog.V(3).Infof("Unhandled protocol message: json pref: %s", string(msg.Data[1:]))
 			case '4': // autoreconnect
-				logrus.Debugf("Unhandled protocol message: autoreconnect: %s", string(msg.Data))
+				glog.V(3).Infof("Unhandled protocol message: autoreconnect: %s", string(msg.Data))
 			default:
-				logrus.Warnf("Unhandled protocol message: %s", string(msg.Data))
+				glog.V(1).Infof("Unhandled protocol message: %s", string(msg.Data))
 			}
 		}
 	}

@@ -54,7 +54,7 @@ func (k ConnKey) String() string {
 	return fmt.Sprintf("%s/%s", k.Name, k.Addr)
 }
 
-type Tty struct {
+type Daemon struct {
 	options       *Options
 	upgrader      *websocket.Upgrader
 	titleTemplate *template.Template
@@ -115,6 +115,7 @@ type Options struct {
 	RawPreferences      map[string]interface{} `hcl:"preferences"`
 	WaitingConnTime     int                    `hcl:"waiting_conn_time"`
 	RecFileDir          string                 `hcl:"rec_file_dir"`
+	SkipTlsVerify       bool                   `hcl:"skip_tls_verify"`
 }
 
 type CallOptions struct {
@@ -191,6 +192,7 @@ var (
 		Preferences:         HtermPrefernces{},
 		WaitingConnTime:     10,
 		RecFileDir:          "/var/lib/gotty",
+		SkipTlsVerify:       false,
 	}
 	DefaultCmdOptions = CmdOptions{
 		All:              false,

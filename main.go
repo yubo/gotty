@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os"
 
 	"github.com/yubo/gotool/flags"
@@ -15,9 +17,13 @@ func main() {
 	if cmd != nil && cmd.Action != nil {
 		opts := &tty.CallOptions{Opt: tty.CmdOpt, Args: cmd.Flag.Args()}
 		cmd.Action(opts)
-		return
 	} else {
-		flags.Usage()
-		os.Exit(1)
+		// gotty-client
+		if err := tty.GottyClient(tty.GlobalOpt.SkipTlsVerify,
+			flag.Args()[0]); err != nil {
+			//flags.Usage()
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	}
 }
