@@ -5,3 +5,4 @@ builds
 etc/
 tmp/
 var/
+tty/resource.go

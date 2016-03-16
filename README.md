@@ -18,9 +18,11 @@ record/replay a session
 ---
 
 #### server demo
+![](resources/gotty_demo.png?raw-true)
+
 ```shell
 #get source
-$go get github.com/yubo/gotty.git
+$go get github.com/yubo/gotty
 $cd $GOPATH/src/github.com/yubo/gotty
 
 #build prepare
@@ -38,8 +40,8 @@ $mkdir -p ./var/rec
 #run
 $make run
 
-#open browser url
-#http://localhost:9000/demo
+#open the url with an browser
+#http://127.0.0.1:9000/demo
 #enjoy it!
 ```
 
@@ -195,6 +197,10 @@ make
 * [tmate](http://tmate.io/): Forked-Tmux based Terminal-Terminal sharing
 * [termshare](https://termsha.re): Terminal-Terminal sharing through a HTTP server
 * [tmux](https://tmux.github.io/): Tmux itself also supports TTY sharing through SSH)
+
+### Thanks
+
+* https://github.com/lyuehh
 
 # License
 
