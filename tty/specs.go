@@ -73,6 +73,9 @@ type Session_info struct {
 	ConnTime   int64
 	LinkNb     int32
 	RecId      string
+	Cmd        string
+	Share      bool
+	Time       string
 }
 
 type session struct {
@@ -97,9 +100,9 @@ type Options struct {
 	Port                string                 `hcl:"port"`
 	EnableBasicAuth     bool                   `hcl:"enable_basic_auth"`
 	Credential          string                 `hcl:"credential"`
-	EnableRandomUrl     bool                   `hcl:"enable_random_url"`
-	RandomUrlLength     int                    `hcl:"random_url_length"`
-	IndexFile           string                 `hcl:"index_file"`
+	DemoDir             string                 `hcl:"demo_dir"`
+	DemoEnable          bool                   `hcl:"demo_enable"`
+	DemoAddr            string                 `hcl:"demo_addr"`
 	EnableTLS           bool                   `hcl:"enable_tls"`
 	TLSCrtFile          string                 `hcl:"tls_crt_file"`
 	TLSKeyFile          string                 `hcl:"tls_key_file"`
@@ -117,6 +120,9 @@ type Options struct {
 	RecFileDir          string                 `hcl:"rec_file_dir"`
 	SkipTlsVerify       bool                   `hcl:"skip_tls_verify"`
 	UnixSocket          string                 `hcl:"unix_socket"`
+	//EnableRandomUrl     bool                   `hcl:"enable_random_url"`
+	//RandomUrlLength     int                    `hcl:"random_url_length"`
+	//IndexFile           string                 `hcl:"index_file"`
 }
 
 type CallOptions struct {
@@ -125,19 +131,21 @@ type CallOptions struct {
 }
 
 type CmdOptions struct {
-	All              bool
-	PermitWrite      bool
-	PermitShare      bool
-	PermitShareWrite bool
-	Rec              bool
-	Repeat           bool
-	MaxWait          int64
-	Speed            float64
-	Name             string
-	Addr             string
-	SName            string
-	SAddr            string
-	RecId            string
+	All              bool    `json:"all"`
+	PermitWrite      bool    `json:"write"`
+	PermitShare      bool    `json:"share"`
+	PermitShareWrite bool    `json:"sharew"`
+	Rec              bool    `json:"rec"`
+	Repeat           bool    `json:"repeat"`
+	MaxWait          int64   `json:"maxwait"`
+	Speed            float64 `json:"speed"`
+	Name             string  `json:"name"`
+	Addr             string  `json:"addr"`
+	Cmd              string  `json:"cmd"`
+	SName            string  `json:"sname"`
+	SAddr            string  `json:"saddr"`
+	RecId            string  `json:"recid"`
+	Action           string  `json:"action"`
 }
 
 type connRx struct {
@@ -173,13 +181,15 @@ const (
 
 var (
 	DefaultOptions = Options{
-		Address:             "",
-		Port:                "8080",
-		EnableBasicAuth:     false,
-		Credential:          "",
-		EnableRandomUrl:     false,
-		RandomUrlLength:     8,
-		IndexFile:           "",
+		Address:         "",
+		Port:            "8080",
+		EnableBasicAuth: false,
+		Credential:      "",
+		//EnableRandomUrl:     false,
+		//RandomUrlLength:     8,
+		//IndexFile:           "",
+		DemoDir:             "/var/lib/gotty/static",
+		DemoAddr:            "127.0.0.0/8",
 		EnableTLS:           false,
 		TLSCrtFile:          "/etc/gotty/gotty.crt",
 		TLSKeyFile:          "/etc/gotty/gotty.key",

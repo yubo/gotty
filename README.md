@@ -16,6 +16,35 @@ record/replay a session
 [![demo](https://asciinema.org/a/cpkhygqp9xun8a7p7nuuqufou.png)](https://asciinema.org/a/cpkhygqp9xun8a7p7nuuqufou?autoplay=1)
 # Example
 ---
+
+#### server demo
+```shell
+#get source
+$go get github.com/yubo/gotty.git
+$cd $GOPATH/src/github.com/yubo/gotty
+
+#build prepare
+$make tools
+
+#build gotty
+$make
+
+#modify ./etc/gotty/gotty.run.conf
+>>demo_enable = true
+>>demo_addr = "127.0.0.0/8"
+>>rec_file_dir = "./var/rec"
+$mkdir -p ./var/rec
+
+#run
+$make run
+
+#open browser url
+#http://localhost:9000/demo
+#enjoy it!
+```
+
+
+
 #### server deamon
 ```shell
 $gotty deamon

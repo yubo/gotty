@@ -116,17 +116,17 @@ func daemon_handle(arg interface{}) {
 	args := arg.(*CallOptions).Args
 
 	if err := checkConfig(&GlobalOpt); err != nil {
-		exit(err, 6)
+		osExit(err, 6)
 	}
 
 	err := daemonInit(&GlobalOpt, args)
 	if err != nil {
-		exit(err, 3)
+		osExit(err, 3)
 	}
 
 	registerSignals()
 	if err = run(); err != nil {
-		exit(err, 4)
+		osExit(err, 4)
 	}
 }
 
@@ -238,7 +238,7 @@ func GottyClient(skipTlsVerify bool, url string) error {
 	return client.Loop()
 }
 
-func exit(err error, code int) {
+func osExit(err error, code int) {
 	if err != nil {
 		glog.Errorln(err)
 	}

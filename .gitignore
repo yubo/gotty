@@ -4,3 +4,4 @@ builds
 *.swp
 etc/
 tmp/
+var/

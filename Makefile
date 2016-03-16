@@ -5,7 +5,7 @@ gotty: tty/resource.go main.go tty/*.go rec/*.go
 
 resource:  tty/resource.go
 
-tty/resource.go: bindata/static/js/hterm.js bindata/static/js/gotty.js  bindata/static/index.html bindata/static/favicon.png
+tty/resource.go: bindata/static/js/hterm.js bindata/static/js/gotty.js  bindata/static/index.html bindata/static/favicon.png bindata/static/css/bootstrap-theme.min.css bindata/static/css/bootstrap.min.css bindata/static/js/bootstrap.min.js bindata/static/js/jquery-1.12.1.js bindata/static/js/demo.js bindata/static/js/fetch.js 
 	go-bindata-assetfs -prefix bindata -pkg tty -ignore=\\.gitkeep -o tty/resource.go bindata/...
 	gofmt -w tty/resource.go
 

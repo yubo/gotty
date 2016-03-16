@@ -156,30 +156,22 @@ func run() error {
 		glog.V(3).Infof("Once option is provided, accepting only one client")
 	}
 
-	path := ""
-	if GlobalOpt.EnableRandomUrl {
-		path += "/" + generateRandomString(GlobalOpt.RandomUrlLength)
-	}
-
 	endpoint := net.JoinHostPort(GlobalOpt.Address, GlobalOpt.Port)
 
-	customIndexHandler := http.HandlerFunc(daemon.handleCustomIndex)
-	authTokenHandler := http.HandlerFunc(daemon.handleAuthToken)
 	staticHandler := http.FileServer(
-		&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: "static"},
-	)
+		&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: "static"})
 
 	var siteMux = http.NewServeMux()
+	siteMux.Handle("/", staticHandler)
+	siteMux.Handle("/auth_token.js", http.HandlerFunc(daemon.handleAuthToken))
+	siteMux.Handle("/js/", staticHandler)
+	siteMux.Handle("/css/", staticHandler)
+	siteMux.Handle("/favicon.png", staticHandler)
 
-	if GlobalOpt.IndexFile != "" {
-		glog.V(3).Infof("Using index file at " + GlobalOpt.IndexFile)
-		siteMux.Handle(path+"/", customIndexHandler)
-	} else {
-		siteMux.Handle(path+"/", http.StripPrefix(path+"/", staticHandler))
-	}
-	siteMux.Handle(path+"/auth_token.js", authTokenHandler)
-	siteMux.Handle(path+"/js/", http.StripPrefix(path+"/", staticHandler))
-	siteMux.Handle(path+"/favicon.png", http.StripPrefix(path+"/", staticHandler))
+	//add demo handler
+	siteMux.HandleFunc("/demo/", demoHandler)
+	siteMux.HandleFunc("/static/", demoStaticHandler)
+	siteMux.HandleFunc("/cmd", demoExecHandler)
 
 	siteHandler := http.Handler(siteMux)
 
@@ -188,12 +180,9 @@ func run() error {
 		siteHandler = wrapBasicAuth(siteHandler, GlobalOpt.Credential)
 	}
 
-	siteHandler = wrapHeaders(siteHandler)
-
 	wsMux := http.NewServeMux()
-	wsMux.Handle("/", siteHandler)
-	wsMux.Handle(path+"/ws", http.HandlerFunc(wsHandler))
-
+	wsMux.Handle("/", wrapHeaders(siteHandler))
+	wsMux.Handle("/ws", http.HandlerFunc(wsHandler))
 	siteHandler = wrapLogger(http.Handler(wsMux))
 
 	scheme := "http"
@@ -209,7 +198,7 @@ func run() error {
 	if GlobalOpt.Address != "" {
 		glog.V(0).Infof(
 			"URL: %s",
-			(&url.URL{Scheme: scheme, Host: endpoint, Path: path + "/"}).String(),
+			(&url.URL{Scheme: scheme, Host: endpoint, Path: "/"}).String(),
 		)
 	} else {
 		for _, address := range listAddresses() {
@@ -218,7 +207,7 @@ func run() error {
 				(&url.URL{
 					Scheme: scheme,
 					Host:   net.JoinHostPort(address, GlobalOpt.Port),
-					Path:   path + "/",
+					Path:   "/",
 				}).String(),
 			)
 		}
@@ -487,15 +476,17 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
 func (tty *Daemon) handleCustomIndex(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, expandHomeDir(GlobalOpt.IndexFile))
 }
+*/
 
 func (tty *Daemon) handleAuthToken(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("var gotty_auth_token = '" + GlobalOpt.Credential + "';"))
 }
 
-func Exit() (firstCall bool) {
+func deamonExit() (firstCall bool) {
 
 	rpc_done()
 
@@ -603,8 +594,11 @@ func registerSignals() {
 			s := <-sigChan
 			switch s {
 			case syscall.SIGINT, syscall.SIGTERM:
-				Exit()
-				os.Exit(1)
+				if deamonExit() {
+					os.Exit(0)
+				} else {
+					os.Exit(1)
+				}
 			}
 		}
 	}()

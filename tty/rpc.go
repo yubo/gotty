@@ -25,6 +25,7 @@ func (c *Cmd) Ps(arg *CallOptions, reply *[]Session_info) error {
 			Command:  session.command,
 			ConnTime: session.connTime,
 			LinkNb:   session.linkNb,
+			Share:    session.options.PermitShare,
 		}
 		if session.linkTo != nil {
 			info.PKey = session.linkTo.key
