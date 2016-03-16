@@ -166,7 +166,7 @@ func run() error {
 	siteMux.Handle("/auth_token.js", http.HandlerFunc(daemon.handleAuthToken))
 	siteMux.Handle("/js/", staticHandler)
 	siteMux.Handle("/css/", staticHandler)
-	siteMux.Handle("/favicon.png", staticHandler)
+	siteMux.Handle("/favicon.ico", staticHandler)
 
 	//add demo handler
 	if GlobalOpt.DemoEnable {
