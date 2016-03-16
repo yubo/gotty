@@ -48,6 +48,7 @@ func (p *Player) Read(d []byte) (n int, err error) {
 		if err = p.dec.Decode(&p.d); err != nil {
 			if p.init && p.repeat && err == io.EOF {
 				p.start = Nanotime()
+				p.offset = 0
 				p.f.Seek(0, 0)
 				p.dec = gob.NewDecoder(p.f)
 				glog.V(2).Infof("read %s EOF, replay again", p.FileName)

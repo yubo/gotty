@@ -6,3 +6,4 @@ etc/
 tmp/
 var/
 tty/resource.go
+hterm.js

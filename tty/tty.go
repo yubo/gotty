@@ -169,9 +169,11 @@ func run() error {
 	siteMux.Handle("/favicon.png", staticHandler)
 
 	//add demo handler
-	siteMux.HandleFunc("/demo/", demoHandler)
-	siteMux.HandleFunc("/static/", demoStaticHandler)
-	siteMux.HandleFunc("/cmd", demoExecHandler)
+	if GlobalOpt.DemoEnable {
+		siteMux.HandleFunc("/demo/", demoHandler)
+		siteMux.HandleFunc("/static/", demoStaticHandler)
+		siteMux.HandleFunc("/cmd", demoExecHandler)
+	}
 
 	siteHandler := http.Handler(siteMux)
 

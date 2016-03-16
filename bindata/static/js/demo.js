@@ -1,5 +1,4 @@
 $("#execBtn").on("click", function(){
-	var form = document.querySelector('#execForm')
 	var json = {
 		action: "exec",
 		name: $("#execName").val(),
@@ -37,30 +36,52 @@ $("#sessions").on("click", "button", function(e){
 			return response.json()
 		}).then(function(json){
 			console.log('parsed json', json)
+			alert("delete success")
+			window.location.reload();
+		}).catch(function(ex) {
+			console.log('parsing failed', action, ex)
 		})
 	}
 });
 
-$("#recs").on("click", "button", function(e){
-	var recid = $(e.currentTarget).data("recid");
-	var action = $(e.currentTarget).data("action")
-
+$("#recPlay").on("click", function(){
+	var json = {
+		action: "play",
+	    recid: $("#recid").val(),
+		repeat: true,
+		maxwait: 1,
+	    speed: parseFloat($("#recSpeed").val())
+	};
 	fetch("/cmd", {
 		method: 'post',
-		body: JSON.stringify({ action : action, recid: recid.toString() })
+		body: JSON.stringify(json)
 	}).then(function(response){
 		return response.json()
 	}).then(function(json){
-		if(action == "delete"){
-			console.log('parsed json', json)
-			alert("delete success")
-			window.location.reload();
-		}else if(action == "play"){
-			window.open("/?name="+json.Key.Name+"&addr="+json.Key.Addr)
-		}
+		window.open("/?name="+json.Key.Name+"&addr="+json.Key.Addr)
 	}).catch(function(ex) {
 		//console.log('parsing failed', action, ex)
 		alert(action + ex)
 	})
+});
 
-})
+$("#recDelete").on("click", function(){
+	var json = {
+		action: "delete",
+	    recid: $("#recid").val(),
+	    speed: parseFloat($("#recSpeed").val())
+	};
+	fetch("/cmd", {
+		method: 'post',
+		body: JSON.stringify(json)
+	}).then(function(response){
+		return response.json()
+	}).then(function(json){
+		console.log('parsed json', json)
+		alert("delete success")
+		window.location.reload();
+	}).catch(function(ex) {
+		console.log('parsing failed', action, ex)
+	})
+});
+

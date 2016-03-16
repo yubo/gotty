@@ -17,7 +17,7 @@ var demoTpl *template.Template
 
 type demoIndex struct {
 	RemoteAddr string
-	Sessions   *[]Session_info
+	Sessions   *Session_infos
 	Recs       []string
 }
 
@@ -51,7 +51,7 @@ func StringJoinSpace(args ...interface{}) string {
 
 func demoHandler(w http.ResponseWriter, r *http.Request) {
 	opt := &CallOptions{}
-	ss := []Session_info{}
+	ss := Session_infos{}
 	data := demoIndex{}
 	now := time.Now().Unix()
 
@@ -69,6 +69,7 @@ func demoHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	sort.Sort(ss)
 	data.Sessions = &ss
 
 	//recs
@@ -102,11 +103,12 @@ func demoExecHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
-	opt.Args = strings.Fields(opt.Opt.Cmd)
 
-	if opt.Opt.Name == "random" {
-		opt.Opt.Name = ""
+	if opt.Opt.Cmd == "" {
+		opt.Opt.Cmd = "/bin/bash"
 	}
+	opt.Opt.Addr = GlobalOpt.DemoAddr
+	opt.Args = strings.Fields(opt.Opt.Cmd)
 
 	if opt.Opt.Action == "exec" {
 		if err := Call("Cmd.Exec", opt, &info); err != nil {
@@ -122,7 +124,6 @@ func demoExecHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		//todo: return successful
 	} else if opt.Opt.Action == "play" {
-		opt.Opt.Addr = GlobalOpt.DemoAddr
 		if err := Call("Cmd.Play", opt, &info); err != nil {
 			glog.Errorf("play %v \n", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -184,7 +185,7 @@ func init() {
 	
 	<div class="container">
 		<h2> create </h2>
-		<div> <form id="execForm"> <table class="table table-striped">
+		<div> <table class="table table-striped">
 			<thead><tr>
 				<th>Name</th>
 				<th>Command</th>
@@ -192,9 +193,9 @@ func init() {
 				<th>Address</th>
 			</tr></thead>
 			<tbody><tr>
-				<td><input type="text" id="execName" value="random" /></td>
-				<td><input type="text" id="execCmd" value="/bin/bash" /></td>
-				<td><input type="text" id="execAddr" value="{{.RemoteAddr}}" /></td>
+				<td><input class="form-control" type="text" id="execName" placeholder="random" /></td>
+				<td><input class="form-control" type="text" id="execCmd" placeholder="bash" /></td>
+				<td><input class="form-control" type="text" id="execAddr" placeholder="{{.RemoteAddr}}" /></td>
 				<td>
 					<input type="checkbox" id="writeCkb"/> writeable
 					<input type="checkbox" id="recCkb" /> rec 
@@ -203,7 +204,7 @@ func init() {
 					<input class="btn btn-default" type="button" value="Submit" id="execBtn" />
 				</td>
 			</tr><tbody>
-		</table></form></div>
+		</table></div>
 		
 		<h2> sessions </h2>
 		<div><table id="sessions" class="table table-striped">
@@ -241,18 +242,15 @@ func init() {
 		
 		<h2> recorder </h2>
 		<div><table id="recs" class="table table-striped">
-			<thead><tr><th>RedId</th><th>action</th></tr></thead>
-			<tbody>
-{{range .Recs}}
-			<tr>
-				<td>{{.}}</td>
+			<thead><tr><th>RedId</th><th>speed</th><th>action</th></tr></thead>
+			<tbody> <tr>
+				<td><select class="form-contorl" id="recid"> {{range .Recs}} <option value="{{.}}">{{.}}</option> {{end}} </select></td>
+				<td><select class="form-contorl" id="recSpeed"> <option value="1">1x</option><option value="2">2x</option><option falue="4">4x</option> </select></td>
 				<td>
-					<button class="btn btn-default" value="play" data-recid="{{.}}" data-action="play">play</button>
-					<button class="btn btn-default" value="delete" data-recid="{{.}}" data-action="delete">delete</button>
+					<button class="btn btn-default" value="play" id="recPlay">play</button>
+					<button class="btn btn-default" value="delete" id="recDelete">delete</button>
 				</td>
-			</tr>
-{{end}}
-			</tbody>
+			</tr> </tbody>
 		</table></div>
 		
 		<hr />

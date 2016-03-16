@@ -78,6 +78,20 @@ type Session_info struct {
 	Time       string
 }
 
+type Session_infos []Session_info
+
+func (slice Session_infos) Len() int {
+	return len(slice)
+}
+
+func (slice Session_infos) Less(i, j int) bool {
+	return slice[i].Key.Name < slice[j].Key.Name
+}
+
+func (slice Session_infos) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
+}
+
 type session struct {
 	sync.Mutex
 	key        ConnKey
