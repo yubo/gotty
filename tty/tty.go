@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/braintree/manners"
-	"github.com/elazarl/go-bindata-assetfs"
+	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"github.com/kr/pty"
@@ -147,10 +147,15 @@ func checkConfig(options *Options) error {
 		return errors.New("TLS client authentication is enabled, " +
 			"but TLS is not enabled")
 	}
+
+	if _, err := os.Stat(GlobalOpt.RecFileDir); os.IsNotExist(err) {
+		return err
+	}
 	return nil
 }
 
 func run() error {
+	var staticHandler http.Handler
 
 	if GlobalOpt.Once {
 		glog.V(3).Infof("Once option is provided, accepting only one client")
@@ -158,12 +163,15 @@ func run() error {
 
 	endpoint := net.JoinHostPort(GlobalOpt.Address, GlobalOpt.Port)
 
-	staticHandler := http.FileServer(
+	staticHandler = http.FileServer(
 		&assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: "static"})
 
 	var siteMux = http.NewServeMux()
 	siteMux.Handle("/", staticHandler)
 	siteMux.Handle("/auth_token.js", http.HandlerFunc(daemon.handleAuthToken))
+	if GlobalOpt.Debug {
+		staticHandler = http.HandlerFunc(resourcesHandler)
+	}
 	siteMux.Handle("/js/", staticHandler)
 	siteMux.Handle("/css/", staticHandler)
 	siteMux.Handle("/favicon.ico", staticHandler)
@@ -171,8 +179,7 @@ func run() error {
 	//add demo handler
 	if GlobalOpt.DemoEnable {
 		siteMux.HandleFunc("/demo/", demoHandler)
-		siteMux.HandleFunc("/static/", demoStaticHandler)
-		siteMux.HandleFunc("/cmd", demoExecHandler)
+		siteMux.HandleFunc("/cmd", demoCmdHandler)
 	}
 
 	siteHandler := http.Handler(siteMux)

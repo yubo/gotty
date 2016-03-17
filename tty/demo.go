@@ -87,13 +87,13 @@ func demoHandler(w http.ResponseWriter, r *http.Request) {
 	demoTpl.Execute(w, data)
 }
 
-func demoStaticHandler(w http.ResponseWriter, r *http.Request) {
-	path := fmt.Sprintf("%s%s", GlobalOpt.DemoDir, r.RequestURI)
+func resourcesHandler(w http.ResponseWriter, r *http.Request) {
+	path := fmt.Sprintf("%s%s", GlobalOpt.Resourses, r.RequestURI)
 	glog.V(3).Infof("demoStaticHandler file %s,  r:%s", path, r.URL.Path)
 	http.ServeFile(w, r, path)
 }
 
-func demoExecHandler(w http.ResponseWriter, r *http.Request) {
+func demoCmdHandler(w http.ResponseWriter, r *http.Request) {
 	var info Session_info
 	opt := &CallOptions{}
 
@@ -189,13 +189,13 @@ func init() {
 			<thead><tr>
 				<th>Name</th>
 				<th>Command</th>
+				<th>Allow Addr</th>
 				<th>Method</th>
-				<th>Address</th>
 			</tr></thead>
 			<tbody><tr>
 				<td><input class="form-control" type="text" id="execName" placeholder="random" /></td>
 				<td><input class="form-control" type="text" id="execCmd" placeholder="bash" /></td>
-				<td><input class="form-control" type="text" id="execAddr" placeholder="{{.RemoteAddr}}" /></td>
+				<td><input class="form-control" type="text" id="execAddr" placeholder="{{.RemoteAddr}}" disabled="disabled" /></td>
 				<td>
 					<input type="checkbox" id="writeCkb"/> writeable
 					<input type="checkbox" id="recCkb" /> rec 

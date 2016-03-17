@@ -14,12 +14,26 @@ create a session
 
 record/replay a session
 [![demo](https://asciinema.org/a/cpkhygqp9xun8a7p7nuuqufou.png)](https://asciinema.org/a/cpkhygqp9xun8a7p7nuuqufou?autoplay=1)
-# Example
----
 
-#### server demo
+# Installation
+
+
+Download the latest binary file from the [Releases](https://github.com/yubo/gotty/releases) page.
+
+(`darwin_amd64.tar.gz` is for Mac OS X users)
+
+#### Quick Start with demo webpage
+
 ![](resources/gotty_demo.png?raw-true)
 
+```shell
+sudo mkdir -p /var/lib/gotty
+sudo ./gotty deamon
+#open the url with an browser
+#http://127.0.0.1:8080/demo
+```
+
+#### build from source
 ```shell
 #get source
 $go get github.com/yubo/gotty
@@ -31,21 +45,53 @@ $make tools
 #build gotty
 $make
 
-#modify ./etc/gotty/gotty.run.conf
->>demo_enable = true
->>demo_addr = "127.0.0.0/8"
->>rec_file_dir = "./var/rec"
-$mkdir -p ./var/rec
-
 #run
 $make run
-
-#open the url with an browser
-#http://127.0.0.1:9000/demo
-#enjoy it!
 ```
 
+# Usage
+```
+Usage: ./gotty [OPTIONS] COMMAND [arg...]
 
+Usage: ./gotty [OPTIONS] COMMAND [arg...]
+       ./gotty [OPTIONS] URL
+```
+
+## Options
+```
+Options:
+
+  -D    debug
+  -alsologtostderr
+        log to standard error as well as files
+  -c string
+        Config file path (default "/etc/gotty/gotty.conf")
+  -h    Print usage
+  -log_backtrace_at value
+        when logging hits line file:N, emit a stack trace (default :0)
+  -log_dir string
+        If non-empty, write log files in this directory
+  -logtostderr
+        log to standard error instead of files
+  -skip-tls-verify
+        Skip TLS verify
+  -stderrthreshold value
+        logs at or above this threshold go to stderr
+  -v value
+        log level for V logs
+  -vmodule value
+        comma-separated list of pattern=N settings for file-filtered logging
+
+Commands:
+    daemon    Enable daemon mode
+    exec      Run a command in a new pty
+    ps        List session
+    attach    Attach to a seesion
+    close     Close a pty/session
+    play      replay recorded file in a webtty
+    convert   convert seesion id to asciicast format(json)
+    version   Show the gotty version information
+```
 
 #### server deamon
 ```shell
@@ -135,8 +181,6 @@ $gotty close -name abc
 ```
 
 
-# Installation
----
 
 ### Security Options
 

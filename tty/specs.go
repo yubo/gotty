@@ -134,9 +134,8 @@ type Options struct {
 	RecFileDir          string                 `hcl:"rec_file_dir"`
 	SkipTlsVerify       bool                   `hcl:"skip_tls_verify"`
 	UnixSocket          string                 `hcl:"unix_socket"`
-	//EnableRandomUrl     bool                   `hcl:"enable_random_url"`
-	//RandomUrlLength     int                    `hcl:"random_url_length"`
-	//IndexFile           string                 `hcl:"index_file"`
+	Debug               bool                   `hcl:"debug"`
+	Resourses           string                 `hcl:"resources"`
 }
 
 type CallOptions struct {
@@ -203,6 +202,7 @@ var (
 		//RandomUrlLength:     8,
 		//IndexFile:           "",
 		DemoDir:             "/var/lib/gotty/static",
+		DemoEnable:          true,
 		DemoAddr:            "127.0.0.0/8",
 		EnableTLS:           false,
 		TLSCrtFile:          "/etc/gotty/gotty.crt",
@@ -219,6 +219,8 @@ var (
 		RecFileDir:          "/var/lib/gotty",
 		SkipTlsVerify:       false,
 		UnixSocket:          "/tmp/gotty.sock",
+		Debug:               false,
+		Resourses:           "./resources",
 	}
 	DefaultCmdOptions = CmdOptions{
 		All:              false,

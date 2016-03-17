@@ -3,7 +3,7 @@ $("#execBtn").on("click", function(){
 		action: "exec",
 		name: $("#execName").val(),
 	    cmd: $("#execCmd").val(),
-	    addr: $("#execAddr").val(),
+//	    addr: $("#execAddr").val(),
 	    write: $("#writeCkb").prop("checked"),
 	    rec: $("#recCkb").prop("checked"),
 	    share: $("#shareCkb").prop("checked"),

@@ -125,7 +125,6 @@ function echo_results() {
   else
     rm -rf "$FLAGS_output"
     echo "${CONCAT_OUTPUT}" >> "$FLAGS_output"
-    chmod a-w "$FLAGS_output"
   fi
 }
 

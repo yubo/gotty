@@ -1,9 +1,9 @@
-gotty
-bindata
-builds
-*.swp
+builds/
 etc/
 tmp/
 var/
+bindata/
+gotty
 tty/resource.go
 hterm.js
+*.swp

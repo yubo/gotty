@@ -19,6 +19,11 @@ func main() {
 		cmd.Action(opts)
 	} else {
 		// gotty-client
+		if len(flag.Args()) == 0 {
+			flags.Usage()
+			os.Exit(1)
+		}
+
 		if err := tty.GottyClient(tty.GlobalOpt.SkipTlsVerify,
 			flag.Args()[0]); err != nil {
 			//flags.Usage()

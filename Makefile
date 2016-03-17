@@ -27,9 +27,12 @@ bindata/static/js: bindata/static
 bindata/static/css: bindata/static
 	mkdir bindata/static/css
 
-bindata/static/js/hterm.js: bindata/static/js libapps/hterm/js/*.js
+bindata/static/js/hterm.js: bindata/static/js resources/js/hterm.js
+	cp resources/js/hterm.js bindata/static/js/hterm.js
+
+resources/js/hterm.js: libapps/hterm/js/*.js
 	cd libapps && \
-	LIBDOT_SEARCH_PATH=`pwd` ./libdot/bin/concat.sh -i ./hterm/concat/hterm_all.concat -o ../bindata/static/js/hterm.js
+	LIBDOT_SEARCH_PATH=`pwd` ./libdot/bin/concat.sh -i ./hterm/concat/hterm_all.concat -o ../resources/js/hterm.js
 
 bindata/static/js/gotty.js: bindata/static/js resources/js/gotty.js
 	cp resources/js/gotty.js bindata/static/js/gotty.js
@@ -65,6 +68,20 @@ deps:
 test:
 	if [ `go fmt ./... | wc -l` -gt 0 ]; then echo "go fmt error"; exit 1; fi
 
+cross_compile:
+	GOARM=5 gox -os="darwin linux freebsd netbsd openbsd" -arch="386 amd64 arm" -output "${OUTPUT_DIR}/pkg/{{.OS}}_{{.Arch}}/{{.Dir}}"
+
+
+targz:
+	mkdir -p ${OUTPUT_DIR}/dist
+	cd ${OUTPUT_DIR}/pkg/; for osarch in *; do (cd $$osarch; tar zcvf ../../dist/gotty_$$osarch.tar.gz ./*); done;
+
+shasums:
+	cd ${OUTPUT_DIR}/dist; shasum * > ./SHASUMS
+
+release:
+	ghr --delete --prerelease -u yubo -r gotty pre-release ${OUTPUT_DIR}/dist
+
 install:
 	install -m 0755 -d /var/log/gotty
 	install -m 0755 -d /etc/gotty
@@ -74,4 +91,4 @@ install:
 	/usr/sbin/update-rc.d gotty defaults
 
 run:
-	./gotty  -logtostderr -v 3 -c ./etc/gotty/gotty.run.conf daemon
+	./gotty -D -logtostderr -v 3 -c ./etc/gotty/gotty.run.conf daemon

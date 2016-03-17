@@ -23,6 +23,7 @@ func init() {
 	// Global options
 	flag.StringVar(&configFile, "c",
 		"/etc/gotty/gotty.conf", "Config file path")
+	flag.BoolVar(&GlobalOpt.Debug, "D", DefaultOptions.Debug, "debug")
 	flag.BoolVar(&GlobalOpt.SkipTlsVerify, "skip-tls-verify",
 		DefaultOptions.SkipTlsVerify, "Skip TLS verify")
 
