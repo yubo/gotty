@@ -13,8 +13,8 @@ build:
         name: test
         code: make test
     - script:
-        name: compile
-        code: make
+        name: cross compile
+        code: make cross_compile OUTPUT_DIR=$WERCKER_OUTPUT_DIR
     - script:
         name: store Makefile
         code: cp Makefile $WERCKER_OUTPUT_DIR/
