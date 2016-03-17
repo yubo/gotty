@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/braintree/manners"
-	assetfs "github.com/elazarl/go-bindata-assetfs"
+	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"github.com/kr/pty"
