@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"strconv"
 	"strings"
 	"syscall"
@@ -27,7 +28,6 @@ import (
 	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
-	"github.com/kr/pty"
 	"github.com/yubo/gotool/flags"
 	"github.com/yubo/gotty/hcl"
 )
@@ -115,6 +115,10 @@ func daemonInit(options *Options, command []string) error {
 		titleTemplate: titleTemplate,
 		session:       make(map[ConnKey]*session),
 		waitingConn:   &Slist{list: list.New()},
+	}
+
+	if GlobalOpt.Chuser != "" {
+		daemon.chuser, _ = user.Lookup(GlobalOpt.Chuser)
 	}
 
 	// waiting conn clean routine
@@ -342,7 +346,7 @@ func ws_connect(session *session, r *http.Request,
 			argv = append(argv, params...)
 		}
 		cmd := exec.Command(session.command[0], argv...)
-		ptyIo, err := pty.Start(cmd)
+		ptyIo, err := ptyStart(cmd)
 		if err != nil {
 			glog.Errorln("Failed to execute command", err)
 			delete(daemon.session, session.key)

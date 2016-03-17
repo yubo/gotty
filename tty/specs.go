@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"os/user"
 	"sync"
 	"text/template"
 
@@ -61,6 +62,7 @@ type Daemon struct {
 	server        *manners.GracefulServer
 	session       map[ConnKey]*session
 	waitingConn   *Slist
+	chuser        *user.User
 }
 
 type Session_info struct {
@@ -136,6 +138,7 @@ type Options struct {
 	UnixSocket          string                 `hcl:"unix_socket"`
 	Debug               bool                   `hcl:"debug"`
 	Resourses           string                 `hcl:"resources"`
+	Chuser              string                 `hcl:"chuser"`
 }
 
 type CallOptions struct {
@@ -221,6 +224,7 @@ var (
 		UnixSocket:          "/tmp/gotty.sock",
 		Debug:               false,
 		Resourses:           "./resources",
+		Chuser:              "",
 	}
 	DefaultCmdOptions = CmdOptions{
 		All:              false,
