@@ -62,7 +62,7 @@ type Daemon struct {
 	server        *manners.GracefulServer
 	session       map[ConnKey]*session
 	waitingConn   *Slist
-	chuser        *user.User
+	user          *user.User
 }
 
 type Session_info struct {
@@ -139,6 +139,7 @@ type Options struct {
 	Debug               bool                   `hcl:"debug"`
 	Resourses           string                 `hcl:"resources"`
 	Chuser              string                 `hcl:"chuser"`
+	Env                 map[string]string      `hcl:"env"`
 }
 
 type CallOptions struct {
@@ -225,6 +226,7 @@ var (
 		Debug:               false,
 		Resourses:           "./resources",
 		Chuser:              "",
+		Env:                 map[string]string{},
 	}
 	DefaultCmdOptions = CmdOptions{
 		All:              false,

@@ -1,9 +1,11 @@
 package tty
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -24,16 +26,25 @@ func ptyStart(c *exec.Cmd) (p *os.File, err error) {
 	c.Stderr = tty
 	c.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
 
-	if daemon.chuser != nil {
-		uid, e1 := strconv.Atoi(daemon.chuser.Uid)
-		gid, e2 := strconv.Atoi(daemon.chuser.Gid)
+	if daemon.user != nil {
+		uid, e1 := strconv.Atoi(daemon.user.Uid)
+		gid, e2 := strconv.Atoi(daemon.user.Gid)
 		if e1 == nil && e2 == nil {
 			c.SysProcAttr.Credential = &syscall.Credential{
 				Uid: uint32(uid),
 				Gid: uint32(gid),
 			}
-			c.Dir = daemon.chuser.HomeDir
-			glog.V(3).Infof("uid:%d gid:%d chdir:%s\n", uid, gid, c.Dir)
+			c.Dir = daemon.user.HomeDir
+
+			c.Env = make([]string, len(GlobalOpt.Env)+1)
+			i := 0
+			for k, v := range GlobalOpt.Env {
+				c.Env[i] = fmt.Sprintf("%s=%s", k, v)
+				i += 1
+			}
+			c.Env[i] = fmt.Sprintf("HOME=%s", c.Dir)
+
+			glog.V(3).Infof("uid:%d gid:%d env:\n%s\n", uid, gid, strings.Join(c.Env, "\n"))
 		}
 	}
 

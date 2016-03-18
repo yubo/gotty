@@ -118,7 +118,9 @@ func daemonInit(options *Options, command []string) error {
 	}
 
 	if GlobalOpt.Chuser != "" {
-		daemon.chuser, _ = user.Lookup(GlobalOpt.Chuser)
+		daemon.user, _ = user.Lookup(GlobalOpt.Chuser)
+	} else {
+		daemon.user, _ = user.Current()
 	}
 
 	// waiting conn clean routine
