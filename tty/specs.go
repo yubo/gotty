@@ -63,6 +63,7 @@ type Daemon struct {
 	session       map[ConnKey]*session
 	waitingConn   *Slist
 	user          *user.User
+	ugroups       []uint32
 }
 
 type Session_info struct {

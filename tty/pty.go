@@ -31,8 +31,9 @@ func ptyStart(c *exec.Cmd) (p *os.File, err error) {
 		gid, e2 := strconv.Atoi(daemon.user.Gid)
 		if e1 == nil && e2 == nil {
 			c.SysProcAttr.Credential = &syscall.Credential{
-				Uid: uint32(uid),
-				Gid: uint32(gid),
+				Uid:    uint32(uid),
+				Gid:    uint32(gid),
+				Groups: daemon.ugroups,
 			}
 			c.Dir = daemon.user.HomeDir
 
@@ -44,7 +45,8 @@ func ptyStart(c *exec.Cmd) (p *os.File, err error) {
 			}
 			c.Env[i] = fmt.Sprintf("HOME=%s", c.Dir)
 
-			glog.V(3).Infof("uid:%d gid:%d env:\n%s\n", uid, gid, strings.Join(c.Env, "\n"))
+			glog.V(3).Infof("uid:%d gid:%d groups:%v env:\n%s\n",
+				uid, gid, daemon.ugroups, strings.Join(c.Env, "\n"))
 		}
 	}
 

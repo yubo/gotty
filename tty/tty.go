@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"github.com/yubo/gotool/flags"
+	"github.com/yubo/gotool/utils"
 	"github.com/yubo/gotty/hcl"
 )
 
@@ -121,6 +122,9 @@ func daemonInit(options *Options, command []string) error {
 		daemon.user, _ = user.Lookup(GlobalOpt.Chuser)
 	} else {
 		daemon.user, _ = user.Current()
+	}
+	if gs, err := utils.GetUGroups(daemon.user.Username); err == nil {
+		daemon.ugroups = gs
 	}
 
 	// waiting conn clean routine

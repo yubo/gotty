@@ -85,7 +85,7 @@ install:
 	install -m 0755 -d /etc/gotty
 	install -m 0755 gotty /usr/sbin/
 	install -m 0755 etc/init.d/gotty /etc/init.d/
-	install -m 0644 etc/gotty/gotty.conf /etc/gotty
+	if [ ! -e /etc/gotty/gotty.conf ]; then install -m 0644 etc/gotty/gotty.conf /etc/gotty; fi;
 	/usr/sbin/update-rc.d gotty defaults
 
 run:

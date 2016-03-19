@@ -82,10 +82,11 @@ func (f *flag_t) Usage() {
 }
 
 func Usage() {
-	fmt.Fprintf(os.Stderr,
-		"Usage: %s [OPTIONS] COMMAND [arg...]\n", os.Args[0])
 	if len(CommandLine.Usage) > 0 {
-		fmt.Fprintf(os.Stderr, "\n%s\n", CommandLine.Usage)
+		fmt.Fprintf(os.Stderr, "%s\n", CommandLine.Usage)
+	} else {
+		fmt.Fprintf(os.Stderr,
+			"Usage: %s [OPTIONS] COMMAND [arg...]\n", os.Args[0])
 	}
 	fmt.Fprintf(os.Stderr, "\nOptions:\n\n")
 
