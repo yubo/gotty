@@ -1,4 +1,4 @@
-// +build darwin dragonfly freebsd !android,linux netbsd openbsd solaris
+// +build dragonfly freebsd !android,linux netbsd openbsd solaris darwin
 // +build cgo
 
 package utils

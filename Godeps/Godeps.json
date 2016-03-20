@@ -48,11 +48,11 @@
 		},
 		{
 			"ImportPath": "github.com/yubo/gotool/flags",
-			"Rev": "c2256159cafcc1f2214e273420eef88429cfbd28"
+			"Rev": "67fa42a08115cdf1ccf5f6c7fe685ddb1cbdac20"
 		},
 		{
 			"ImportPath": "github.com/yubo/gotool/utils",
-			"Rev": "c2256159cafcc1f2214e273420eef88429cfbd28"
+			"Rev": "67fa42a08115cdf1ccf5f6c7fe685ddb1cbdac20"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/ssh/terminal",

@@ -1,4 +1,4 @@
-// +build !cgo,plan9 android windows
+// +build !cgo plan9 android windows
 
 package utils
 
