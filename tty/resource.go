@@ -2,6 +2,7 @@
 // sources:
 // bindata/static/css/bootstrap-theme.min.css
 // bindata/static/css/bootstrap.min.css
+// bindata/static/css/style.css
 // bindata/static/favicon.ico
 // bindata/static/font/UbuntuMono-BP.ttf
 // bindata/static/font/UbuntuMono-RP.ttf
@@ -94,7 +95,7 @@ func staticCssBootstrapThemeMinCss() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/css/bootstrap-theme.min.css", size: 23409, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/css/bootstrap-theme.min.css", size: 23409, mode: os.FileMode(436), modTime: time.Unix(1458817237, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -114,7 +115,27 @@ func staticCssBootstrapMinCss() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/css/bootstrap.min.css", size: 121260, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/css/bootstrap.min.css", size: 121260, mode: os.FileMode(436), modTime: time.Unix(1458817237, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _staticCssStyleCss = []byte("\x1f\x8b\x08\x00\x00\x09\x6e\x88\x00\xff\x72\x48\xcb\xcf\x2b\xd1\x4d\x4b\x4c\x4e\x55\xa8\xe6\xe2\x84\x72\x72\x33\x73\x2a\xad\x14\x94\x42\x93\x4a\xf3\x4a\x4a\x7d\xf3\xf3\xf2\x95\xac\xb9\x38\x8b\x8b\x92\xad\x14\x4a\x8b\x72\x34\x94\xf4\x41\xca\xf4\x11\xb2\xba\x41\x01\x7a\x25\x25\x69\x4a\x9a\xd6\x5c\xb5\x5c\x54\x31\xd0\x09\x6e\x20\xc4\x84\xf2\xd4\xcc\xf4\x8c\x12\x2b\x85\xa4\xfc\x9c\x14\x90\x25\x5c\x80\x00\x00\x00\xff\xff\xe4\x5d\x51\x4c\xb7\x00\x00\x00")
+
+func staticCssStyleCssBytes() ([]byte, error) {
+	return bindataRead(
+		_staticCssStyleCss,
+		"static/css/style.css",
+	)
+}
+
+func staticCssStyleCss() (*asset, error) {
+	bytes, err := staticCssStyleCssBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "static/css/style.css", size: 183, mode: os.FileMode(436), modTime: time.Unix(1458817604, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -134,7 +155,7 @@ func staticFaviconIco() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/favicon.ico", size: 25214, mode: os.FileMode(420), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/favicon.ico", size: 25214, mode: os.FileMode(420), modTime: time.Unix(1458817538, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -154,7 +175,7 @@ func staticFontUbuntumonoBpTtf() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/font/UbuntuMono-BP.ttf", size: 183084, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/font/UbuntuMono-BP.ttf", size: 183084, mode: os.FileMode(436), modTime: time.Unix(1458817237, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -174,7 +195,7 @@ func staticFontUbuntumonoRpTtf() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/font/UbuntuMono-RP.ttf", size: 197476, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/font/UbuntuMono-RP.ttf", size: 197476, mode: os.FileMode(436), modTime: time.Unix(1458817237, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -194,7 +215,7 @@ func staticIndexHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/index.html", size: 349, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/index.html", size: 349, mode: os.FileMode(436), modTime: time.Unix(1458817538, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -214,7 +235,7 @@ func staticJsBootstrapMinJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/js/bootstrap.min.js", size: 36868, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/js/bootstrap.min.js", size: 36868, mode: os.FileMode(436), modTime: time.Unix(1458817604, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -234,7 +255,7 @@ func staticJsDemoJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/js/demo.js", size: 2160, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/js/demo.js", size: 2160, mode: os.FileMode(436), modTime: time.Unix(1458817237, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -254,7 +275,7 @@ func staticJsFetchJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/js/fetch.js", size: 11475, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/js/fetch.js", size: 11475, mode: os.FileMode(436), modTime: time.Unix(1458817237, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -274,7 +295,7 @@ func staticJsGottyJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/js/gotty.js", size: 2866, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/js/gotty.js", size: 2866, mode: os.FileMode(436), modTime: time.Unix(1458817538, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -294,7 +315,7 @@ func staticJsHtermJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/js/hterm.js", size: 522643, mode: os.FileMode(420), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/js/hterm.js", size: 522643, mode: os.FileMode(420), modTime: time.Unix(1458817538, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -314,7 +335,7 @@ func staticJsJquery1121Js() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "static/js/jquery-1.12.1.js", size: 294199, mode: os.FileMode(436), modTime: time.Unix(1458816525, 0)}
+	info := bindataFileInfo{name: "static/js/jquery-1.12.1.js", size: 294199, mode: os.FileMode(436), modTime: time.Unix(1458817604, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -373,6 +394,7 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"static/css/bootstrap-theme.min.css": staticCssBootstrapThemeMinCss,
 	"static/css/bootstrap.min.css":       staticCssBootstrapMinCss,
+	"static/css/style.css":               staticCssStyleCss,
 	"static/favicon.ico":                 staticFaviconIco,
 	"static/font/UbuntuMono-BP.ttf":      staticFontUbuntumonoBpTtf,
 	"static/font/UbuntuMono-RP.ttf":      staticFontUbuntumonoRpTtf,
@@ -430,6 +452,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"css": &bintree{nil, map[string]*bintree{
 			"bootstrap-theme.min.css": &bintree{staticCssBootstrapThemeMinCss, map[string]*bintree{}},
 			"bootstrap.min.css":       &bintree{staticCssBootstrapMinCss, map[string]*bintree{}},
+			"style.css":               &bintree{staticCssStyleCss, map[string]*bintree{}},
 		}},
 		"favicon.ico": &bintree{staticFaviconIco, map[string]*bintree{}},
 		"font": &bintree{nil, map[string]*bintree{

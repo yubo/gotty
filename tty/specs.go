@@ -219,7 +219,7 @@ var (
 		ReconnectTime:       10,
 		Once:                false,
 		CloseSignal:         1, // syscall.SIGHUP
-		Preferences:         HtermPrefernces{FontFamily: "UbuntuMono", FontSize: 16},
+		Preferences:         HtermPrefernces{},
 		WaitingConnTime:     10,
 		RecFileDir:          "/var/lib/gotty",
 		SkipTlsVerify:       false,
