@@ -1245,6 +1245,11 @@ hterm.Terminal.prototype.decorate = function(div) {
   screenNode.addEventListener(
       'blur', this.onFocusChange_.bind(this, false));
 
+  var link = this.document_.createElement('link');
+  link.rel = 'stylesheet';
+  link.href= '/css/style.css';
+  this.document_.head.appendChild(link)
+
   var style = this.document_.createElement('style');
   style.textContent =
       ('.cursor-node[focus="false"] {' +

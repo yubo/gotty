@@ -5,7 +5,7 @@ gotty: tty/resource.go main.go tty/*.go rec/*.go
 
 resource:  tty/resource.go
 
-tty/resource.go: bindata/static/js/hterm.js bindata/static/js/gotty.js  bindata/static/index.html bindata/static/favicon.ico bindata/static/css/bootstrap-theme.min.css bindata/static/css/bootstrap.min.css bindata/static/js/bootstrap.min.js bindata/static/js/jquery-1.12.1.js bindata/static/js/demo.js bindata/static/js/fetch.js 
+tty/resource.go: bindata/static/js/hterm.js bindata/static/js/gotty.js  bindata/static/index.html bindata/static/favicon.ico bindata/static/css/bootstrap-theme.min.css bindata/static/css/bootstrap.min.css bindata/static/js/bootstrap.min.js bindata/static/js/jquery-1.12.1.js bindata/static/js/demo.js bindata/static/js/fetch.js bindata/static/font/UbuntuMono-BP.ttf bindata/static/font/UbuntuMono-RP.ttf
 	go-bindata -prefix bindata -pkg tty -ignore=\\.gitkeep -o tty/resource.go bindata/...
 	gofmt -w tty/resource.go
 
@@ -26,6 +26,9 @@ bindata/static/js: bindata/static
 
 bindata/static/css: bindata/static
 	mkdir bindata/static/css
+
+bindata/static/font: bindata/static
+	mkdir bindata/static/font
 
 bindata/static/js/hterm.js: bindata/static/js resources/js/hterm.js
 	cp resources/js/hterm.js bindata/static/js/hterm.js
@@ -54,6 +57,12 @@ bindata/static/css/bootstrap-theme.min.css: bindata/static/css resources/css/boo
 
 bindata/static/css/bootstrap.min.css: bindata/static/css resources/css/bootstrap.min.css
 	cp resources/css/bootstrap.min.css bindata/static/css/bootstrap.min.css
+
+bindata/static/font/UbuntuMono-BP.ttf: bindata/static/font resources/font/UbuntuMono-BP.ttf
+	cp resources/font/UbuntuMono-BP.ttf bindata/static/font/UbuntuMono-BP.ttf
+
+bindata/static/font/UbuntuMono-RP.ttf: bindata/static/font resources/font/UbuntuMono-RP.ttf
+	cp resources/font/UbuntuMono-RP.ttf bindata/static/font/UbuntuMono-RP.ttf
 
 tools:
 	go get github.com/tools/godep

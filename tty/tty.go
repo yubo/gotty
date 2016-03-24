@@ -184,6 +184,7 @@ func run() error {
 	}
 	siteMux.Handle("/js/", staticHandler)
 	siteMux.Handle("/css/", staticHandler)
+	siteMux.Handle("/font/", staticHandler)
 	siteMux.Handle("/favicon.ico", staticHandler)
 
 	//add demo handler
