@@ -1,7 +1,7 @@
-OUTPUT_DIR = ./builds
+OUTPUT_DIR = ${PWD}/builds
 
 gotty: tty/resource.go main.go tty/*.go rec/*.go
-	go build
+	go build -o gotty cmd/gotty/*.go
 
 resource:  tty/resource.go
 
@@ -79,7 +79,7 @@ test:
 	if [ `go fmt ./... | wc -l` -gt 0 ]; then echo "go fmt error"; exit 1; fi
 
 cross_compile:
-	GOARM=6 gox -os="linux darwin freebsd netbsd openbsd" -arch="386 amd64 arm" -output "${OUTPUT_DIR}/pkg/{{.OS}}_{{.Arch}}/{{.Dir}}"
+	cd cmd/gotty && GOARM=6 gox -os="linux darwin freebsd netbsd openbsd" -arch="386 amd64 arm" -output "${OUTPUT_DIR}/pkg/{{.OS}}_{{.Arch}}/{{.Dir}}"
 
 
 targz:
